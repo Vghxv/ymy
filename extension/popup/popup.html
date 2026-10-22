@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YT Music MP3</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main id="card" class="card" data-state="idle">
+    <div class="head">
+      <div id="title" class="title"></div>
+      <span id="saved" class="saved" hidden>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>
+        In folder
+      </span>
+    </div>
+    <div class="bar"><div id="fill" class="fill"></div></div>
+    <div class="row">
+      <span id="status" class="status"></span>
+      <button id="action" class="action" type="button" hidden>Download</button>
+    </div>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

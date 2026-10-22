@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "YT Music MP3",
+  "version": "1.0.0",
+  "description": "Download YouTube Music tracks as MP3 from the toolbar popup.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzBmaPOsz7Sni3NDs09DEoNeUErua0iwCN9+Qd0ARJpCBJJf9mmpCMuXBkz8JbYU9VxebyN8cXDJG91vZ692YEzgG1oVwRsrTmqSBhuChce+DIViWtUs63XXqIs8ntcwtvWfpVEzN8OSKZbO/sV78ioZVfpg1rWPsDhMkZTQks/tw82zm9VWt5BY17Ixr+nzU6lT4p0xVknUIHH89kkrYuERDdNM8CTEuOrhxRMQYjs+Zgo7EW4N2M9YKX6ga3tdpF3XSkokVLdmyiYYMaHOTGwMAEIHxX+vQjxHGZCO0Lnbv50QeQCAwF2DXbU0FVFb+E5E323A12I0s6oieUQ/EbwIDAQAB",
+  "minimum_chrome_version": "110",
+  "permissions": ["nativeMessaging", "storage"],
+  "host_permissions": ["https://music.youtube.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": false
+  },
+  "action": {
+    "default_title": "Open a track on YouTube Music to download",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/off16.png",
+      "32": "icons/off32.png",
+      "48": "icons/off48.png",
+      "128": "icons/off128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/on16.png",
+    "32": "icons/on32.png",
+    "48": "icons/on48.png",
+    "128": "icons/on128.png"
+  }
+}

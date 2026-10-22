@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YT Music MP3 options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <form id="form" class="form">
+    <label for="dir" class="label">Download folder</label>
+    <input id="dir" class="input" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Default: your Music folder (then Downloads)">
+    <p class="hint">A full path, for example <code>D:\Music\YouTube</code>. It is created if it doesn't exist.
+      Leave empty to use the default.</p>
+    <div class="row">
+      <span id="status" class="status" role="status"></span>
+      <button id="reset" class="button" type="button">Use default</button>
+      <button class="button primary" type="submit">Save</button>
+    </div>
+  </form>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
