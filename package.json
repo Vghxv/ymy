@@ -1,0 +1,9 @@
+{
+  "name": "ytm-mp3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/js/*.test.js",
+    "test:host": "python -m unittest discover -s host/tests -t host"
+  }
+}
