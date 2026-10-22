@@ -7,12 +7,13 @@ import re
 import sys
 
 from . import system
-from .errors import UPDATABLE, HelperError, classify
+from .errors import UPDATABLE, HelperError
+from .library import VIDEO_ID
 from .updater import update_yt_dlp
 
 log = logging.getLogger("ytm_host.downloader")
 
-URL_RE = re.compile(r"^https://music\.youtube\.com/watch\?v=[A-Za-z0-9_-]{11}$")
+URL_RE = re.compile(r"^https://music\.youtube\.com/watch\?v=" + VIDEO_ID + r"\Z")
 
 OUTPUT_TEMPLATE = "%(artist,uploader)s - %(title)s.%(ext)s"
 
@@ -26,11 +27,7 @@ class _YdlLogger:
     def debug(self, message):
         log.debug(message)
 
-    def info(self, message):
-        log.debug(message)
-
-    def warning(self, message):
-        log.debug(message)
+    info = warning = debug
 
     def error(self, message):
         log.error(message)
@@ -78,14 +75,16 @@ class _Reporter:
         self._emit = emit
         self._pct = 0
         self._last = None
-        self.info_sent = False
+        self._info_sent = False
         self.final_path = None
 
-    def info(self, title, artist):
-        if self.info_sent:
+    def info(self, info_dict):
+        if self._info_sent:
             return
-        self.info_sent = True
-        self._emit({"type": "info", "title": title or "", "artist": artist or ""})
+        self._info_sent = True
+        title = info_dict.get("track") or info_dict.get("title") or ""
+        artist = info_dict.get("artist") or info_dict.get("uploader") or ""
+        self._emit({"type": "info", "title": title, "artist": artist})
 
     def progress(self, stage, pct):
         pct = max(self._pct, min(CONVERT_END, int(pct)))
@@ -99,9 +98,7 @@ def _download_once(url, emit, yt_dlp, out_dir, ffmpeg_path, js_options):
     reporter = _Reporter(emit)
 
     def on_progress(data):
-        if not reporter.info_sent:
-            info = data.get("info_dict") or {}
-            reporter.info(info.get("track") or info.get("title"), info.get("artist") or info.get("uploader"))
+        reporter.info(data.get("info_dict") or {})
         status = data.get("status")
         if status == "downloading":
             total = data.get("total_bytes") or data.get("total_bytes_estimate")
@@ -164,24 +161,24 @@ def run_job(
     try:
         path = _run(url, emit, load, find_ffmpeg, resolve_dir, update, js_options, output_dir)
     except HelperError as exc:
-        log.warning("job failed: %s (%s)", exc.code, exc.message)
-        emit({"type": "error", "code": exc.code, "message": exc.message})
-        return
+        error = exc
     except Exception as exc:
         log.exception("unexpected failure")
-        code, message = classify(str(exc))
-        emit({"type": "error", "code": code, "message": message})
+        error = HelperError.from_text(str(exc))
+    else:
+        emit({"type": "done", "path": path, "filename": os.path.basename(path)})
         return
-    emit({"type": "done", "path": path, "filename": os.path.basename(path)})
+    log.warning("job failed: %s (%s)", error.code, error.message)
+    emit(error.to_message())
 
 
-def _run(url, emit, load, find_ffmpeg, resolve_dir, update, js_options, output_dir=None):
+def _run(url, emit, load, find_ffmpeg, resolve_dir, update, js_options, output_dir):
     if not URL_RE.match(url or ""):
         raise HelperError("invalid_url", "That is not a YouTube Music track link.")
 
     ffmpeg_path = find_ffmpeg()
     if not ffmpeg_path:
-        raise HelperError("ffmpeg_missing", "ffmpeg was not found. Run install.bat again.")
+        raise HelperError("ffmpeg_missing")
 
     out_dir = resolve_dir(chosen=output_dir) if output_dir else resolve_dir()
     yt_dlp = load()
@@ -193,12 +190,12 @@ def _run(url, emit, load, find_ffmpeg, resolve_dir, update, js_options, output_d
         except HelperError:
             raise
         except Exception as exc:
-            code, message = classify(str(exc))
-            log.warning("attempt failed (%s): %s", code, exc)
-            if code in UPDATABLE and not updated:
+            error = HelperError.from_text(str(exc))
+            log.warning("attempt failed (%s): %s", error.code, exc)
+            if error.code in UPDATABLE and not updated:
                 updated = True
                 emit({"type": "progress", "stage": "updating", "pct": 0})
                 if update():
                     yt_dlp = load(reload=True)
                     continue
-            raise HelperError(code, message)
+            raise error

@@ -1,4 +1,4 @@
-import { statusText } from "../src/jobs.js";
+import { idleJob, noTrackJob, statusText } from "../src/jobs.js";
 import { HOST_NAME } from "../src/native.js";
 import { getOutputDir } from "../src/settings.js";
 import { canonicalUrl, cleanTabTitle, trackId } from "../src/track.js";
@@ -53,14 +53,15 @@ async function checkSaved(id) {
 
 async function main() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab || !trackId(tab.url)) {
-    render({ state: "error", title: "", pct: 0, message: "Open a track on YouTube Music first." });
+  const id = tab && trackId(tab.url);
+  if (!id) {
+    render(noTrackJob());
     return;
   }
 
   const title = cleanTabTitle(tab.title);
   port = chrome.runtime.connect({ name: "popup" });
-  render({ state: "idle", title, pct: 0 });
+  render(idleJob(title));
   port.onMessage.addListener((msg) => {
     if (msg.type === "job") render(msg.job);
   });
@@ -69,7 +70,7 @@ async function main() {
     port.postMessage({ cmd: "download", url: tab.url, title });
   });
   port.postMessage({ cmd: "open", url: tab.url, title });
-  checkSaved(trackId(tab.url));
+  checkSaved(id);
 }
 
 main();

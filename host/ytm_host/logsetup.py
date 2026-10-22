@@ -9,10 +9,11 @@ MAX_LOG_BYTES = 256 * 1024
 
 def setup():
     """Log to ~/.ytm-mp3/host.log. Logging problems must never break a download."""
+    folder = config_dir()
     try:
-        os.makedirs(config_dir(), exist_ok=True)
+        os.makedirs(folder, exist_ok=True)
         handler = RotatingFileHandler(
-            os.path.join(config_dir(), "host.log"),
+            os.path.join(folder, "host.log"),
             maxBytes=MAX_LOG_BYTES,
             backupCount=1,
             encoding="utf-8",
