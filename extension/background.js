@@ -1,7 +1,7 @@
 import { HOST_NAME, helperErrorMessage } from "./src/native.js";
 import { getOutputDir } from "./src/settings.js";
 import { canonicalUrl, trackId } from "./src/track.js";
-import { interruptedJob, isActive, newJob, reduce, shownOnOpen } from "./src/jobs.js";
+import { idleJob, interruptedJob, isActive, newJob, noTrackJob, reduce, shownOnOpen } from "./src/jobs.js";
 
 const MAX_STORED_JOBS = 20;
 
@@ -82,13 +82,26 @@ function persistJobs() {
   chrome.storage.session.set({ jobs: Object.fromEntries(jobs) });
 }
 
+function sendJob(popup, job) {
+  popup.port.postMessage({ type: "job", job });
+}
+
 function setJob(id, job) {
   jobs.set(id, job);
   persistJobs();
   showBadge(job);
   for (const popup of popups) {
-    if (popup.id === id) popup.port.postMessage({ type: "job", job });
+    if (popup.id === id) sendJob(popup, job);
   }
+}
+
+/** Apply one helper message to the stored job. */
+function update(id, msg) {
+  setJob(id, reduce(jobs.get(id), msg));
+}
+
+function fail(id, reason) {
+  update(id, { type: "error", message: helperErrorMessage(reason) });
 }
 
 // ---------- talking to the helper ----------
@@ -102,20 +115,16 @@ async function startDownload(id, titleHint) {
   try {
     port = chrome.runtime.connectNative(HOST_NAME);
   } catch (error) {
-    setJob(id, reduce(jobs.get(id), { type: "error", message: helperErrorMessage(error.message) }));
+    fail(id, error.message);
     return;
   }
   helpers.set(id, port);
 
-  port.onMessage.addListener((msg) => setJob(id, reduce(jobs.get(id), msg)));
+  port.onMessage.addListener((msg) => update(id, msg));
 
   port.onDisconnect.addListener(() => {
-    const reason = chrome.runtime.lastError && chrome.runtime.lastError.message;
     if (helpers.get(id) === port) helpers.delete(id);
-    const job = jobs.get(id);
-    if (isActive(job)) {
-      setJob(id, reduce(job, { type: "error", message: helperErrorMessage(reason) }));
-    }
+    if (isActive(jobs.get(id))) fail(id, chrome.runtime.lastError?.message);
   });
 
   port.postMessage({ type: "download", url: canonicalUrl(id), output_dir: outputDir });
@@ -127,23 +136,19 @@ async function handlePopupCommand(popup, msg) {
   await ready;
   const id = trackId(msg.url);
   if (!id) {
-    popup.port.postMessage({
-      type: "job",
-      job: { state: "error", title: "", pct: 0, message: "Open a track on YouTube Music first." },
-    });
+    sendJob(popup, noTrackJob());
     return;
   }
   popup.id = id;
 
   const existing = jobs.get(id);
   if (msg.cmd === "download") {
-    if (!isActive(existing)) startDownload(id, msg.title || (existing && existing.title) || "");
-    else popup.port.postMessage({ type: "job", job: existing });
+    if (isActive(existing)) sendJob(popup, existing);
+    else startDownload(id, msg.title || existing?.title || "");
     return;
   }
   // "open": show what's going on for this track, or the idle state with a Download button.
-  const job = shownOnOpen(existing) ? existing : { state: "idle", title: msg.title || "", pct: 0 };
-  popup.port.postMessage({ type: "job", job });
+  sendJob(popup, shownOnOpen(existing) ? existing : idleJob(msg.title));
 }
 
 chrome.runtime.onConnect.addListener((port) => {

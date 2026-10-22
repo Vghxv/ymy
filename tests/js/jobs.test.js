@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   DONE_SHOWN_MS,
+  idleJob,
   interruptedJob,
   isActive,
   newJob,
+  noTrackJob,
   reduce,
   shownOnOpen,
   statusText,
@@ -66,8 +68,10 @@ test("shownOnOpen: new, running, recently finished, old, and failed jobs", () =>
   assert.equal(shownOnOpen(failed, T0 + 1), true);
 });
 
-test("statusText for the idle state", () => {
-  assert.equal(statusText({ state: "idle" }), "Ready to download");
+test("statusText for the idle and no-track states", () => {
+  assert.equal(statusText(idleJob("T")), "Ready to download");
+  assert.equal(statusText(noTrackJob()), "Open a track on YouTube Music first.");
+  assert.ok(!shownOnOpen(idleJob()));
 });
 
 test("interruptedJob turns a running job into an error", () => {

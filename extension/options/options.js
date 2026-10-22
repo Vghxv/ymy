@@ -1,4 +1,4 @@
-import { OUTPUT_DIR_KEY, outputDirError } from "../src/settings.js";
+import { OUTPUT_DIR_KEY, getOutputDir, outputDirError } from "../src/settings.js";
 
 const form = document.getElementById("form");
 const dirEl = document.getElementById("dir");
@@ -30,6 +30,6 @@ form.addEventListener("submit", (event) => {
 resetEl.addEventListener("click", () => save(""));
 dirEl.addEventListener("input", () => show(""));
 
-chrome.storage.sync.get(OUTPUT_DIR_KEY).then((stored) => {
-  dirEl.value = stored[OUTPUT_DIR_KEY] || "";
+getOutputDir().then((dir) => {
+  dirEl.value = dir;
 });

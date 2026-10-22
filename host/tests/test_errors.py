@@ -1,6 +1,6 @@
 import unittest
 
-from ytm_host.errors import UPDATABLE, classify, clean_message
+from ytm_host.errors import UPDATABLE, HelperError, classify, clean_message
 
 
 class ClassifyTests(unittest.TestCase):
@@ -40,6 +40,15 @@ class CleanMessageTests(unittest.TestCase):
 
     def test_truncates_long_messages(self):
         self.assertLessEqual(len(clean_message("x" * 1000)), 200)
+
+
+class HelperErrorTests(unittest.TestCase):
+    def test_known_code_gets_its_standard_message(self):
+        self.assertEqual(HelperError("ffmpeg_missing").message, classify("ffmpeg not found")[1])
+
+    def test_from_text_classifies(self):
+        error = HelperError.from_text("HTTP Error 429")
+        self.assertEqual(error.to_message(), {"type": "error", "code": "rate_limited", "message": error.message})
 
 
 if __name__ == "__main__":

@@ -11,12 +11,18 @@ from .protocol import ProtocolError, read_message, write_message
 
 log = logging.getLogger("ytm_host")
 
+HANDLERS = {"check": run_check, "download": run_job}
+
 
 def _binary_stdio():
     import msvcrt
 
     msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
     msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
+
+def _protocol_error(message):
+    return {"type": "error", "code": "protocol", "message": message}
 
 
 def main():
@@ -28,37 +34,33 @@ def main():
     logsetup.setup()
     system.augment_path()
 
-    alive = {"ok": True}
+    alive = True
 
     def emit(message):
-        if not alive["ok"]:
+        nonlocal alive
+        if not alive:
             return
         try:
             write_message(stdout, message)
         except (OSError, ValueError):
-            alive["ok"] = False
+            alive = False
 
     try:
         request = read_message(stdin)
     except ProtocolError as exc:
         log.error("bad request: %s", exc)
-        emit({"type": "error", "code": "protocol", "message": "The helper got a malformed request."})
+        emit(_protocol_error("The helper got a malformed request."))
         return 1
 
-    if isinstance(request, dict) and request.get("type") == "check":
-        output_dir = request.get("output_dir")
-        run_check(request.get("url", ""), emit, output_dir=output_dir)
-        return 0
-
-    if not isinstance(request, dict) or request.get("type") != "download":
-        emit({"type": "error", "code": "protocol", "message": "The helper got an unknown request."})
+    handler = HANDLERS.get(request.get("type")) if isinstance(request, dict) else None
+    if not handler:
+        emit(_protocol_error("The helper got an unknown request."))
         return 1
 
-    log.info("download requested: %s", request.get("url"))
     output_dir = request.get("output_dir")
-    if output_dir:
-        log.info("output folder from extension: %s", output_dir)
-    run_job(request.get("url", ""), emit, output_dir=output_dir if isinstance(output_dir, str) else None)
+    output_dir = output_dir if isinstance(output_dir, str) and output_dir.strip() else None
+    log.info("%s requested: %s (folder: %s)", request["type"], request.get("url"), output_dir or "default")
+    handler(request.get("url", ""), emit, output_dir=output_dir)
     return 0
 
 

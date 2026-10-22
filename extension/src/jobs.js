@@ -11,6 +11,16 @@ export function newJob(id, title = "", now = Date.now()) {
   return { id, title, state: "starting", pct: 0, message: "", path: "", at: now };
 }
 
+/** What the popup shows before anything is downloaded. */
+export function idleJob(title = "") {
+  return { state: "idle", title, pct: 0 };
+}
+
+/** What the popup shows on a tab that isn't a track page. */
+export function noTrackJob() {
+  return { state: "error", title: "", pct: 0, message: "Open a track on YouTube Music first." };
+}
+
 export function interruptedJob(job, now = Date.now()) {
   return { ...job, state: "error", message: "Interrupted. Try again.", at: now };
 }

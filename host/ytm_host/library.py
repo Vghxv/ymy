@@ -15,8 +15,9 @@ from . import system
 
 log = logging.getLogger("ytm_host.library")
 
-ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
-URL_ID_RE = re.compile(r"[?&]v=([A-Za-z0-9_-]{11})(?:&|$)")
+VIDEO_ID = r"[A-Za-z0-9_-]{11}"
+ID_RE = re.compile(VIDEO_ID + r"\Z")
+URL_ID_RE = re.compile(r"[?&]v=(" + VIDEO_ID + r")(?:&|$)")
 
 # Frames that can hold the link. Everything else is skipped without reading it.
 TEXT_FRAMES = {b"COMM", b"TXXX", b"WXXX", b"WOAS", b"WOAF"}
@@ -30,6 +31,11 @@ def video_id(url):
 
 def _syncsafe(data):
     return (data[0] << 21) | (data[1] << 14) | (data[2] << 7) | data[3]
+
+
+def _size(data, version):
+    """ID3v2.4 sizes are syncsafe; v2.3 sizes are plain big-endian."""
+    return _syncsafe(data) if version == 4 else struct.unpack(">I", data)[0]
 
 
 def _needles(vid):
@@ -57,7 +63,7 @@ def tag_mentions(path, vid):
                 ext = handle.read(4)
                 if len(ext) < 4:
                     return False
-                ext_size = _syncsafe(ext) if version == 4 else struct.unpack(">I", ext)[0] + 4
+                ext_size = _size(ext, version) + (4 if version == 3 else 0)
                 pos += ext_size
                 handle.seek(pos)
             while pos + 10 <= end:
@@ -65,7 +71,7 @@ def tag_mentions(path, vid):
                 if len(frame) < 10 or frame[0] == 0:
                     return False  # padding or truncated
                 frame_id = frame[:4]
-                size = _syncsafe(frame[4:8]) if version == 4 else struct.unpack(">I", frame[4:8])[0]
+                size = _size(frame[4:8], version)
                 pos += 10
                 if size <= 0 or pos + size > end:
                     return False
@@ -100,11 +106,9 @@ def run_check(url, emit, output_dir=None, resolve_dir=system.resolve_output_dir)
     vid = video_id(url)
     root = None
     try:
-        if isinstance(output_dir, str) and output_dir.strip():
-            root = os.path.expandvars(os.path.expanduser(output_dir.strip()))
-        else:
-            root = resolve_dir()
-        path = find_track(root, vid) if vid else None
+        # Unlike a download, a check must never create the folder.
+        root = system.expand_dir(output_dir) if output_dir and output_dir.strip() else resolve_dir()
+        path = find_track(root, vid)
     except Exception:
         log.exception("library check failed")
         path = None

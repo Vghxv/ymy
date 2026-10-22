@@ -12,10 +12,18 @@ UPDATABLE = frozenset({"extractor_broken"})
 
 
 class HelperError(Exception):
-    def __init__(self, code, message):
+    def __init__(self, code, message=None):
+        message = message or MESSAGES.get(code, "Download failed.")
         super().__init__(message)
         self.code = code
         self.message = message
+
+    @classmethod
+    def from_text(cls, text):
+        return cls(*classify(text))
+
+    def to_message(self):
+        return {"type": "error", "code": self.code, "message": self.message}
 
 
 # Order matters: the first matching rule wins.
@@ -54,6 +62,7 @@ RULES = [
 ]
 
 _COMPILED = [(code, re.compile(pattern, re.IGNORECASE), message) for code, pattern, message in RULES]
+MESSAGES = {code: message for code, _, message in RULES}
 
 
 def clean_message(text):
