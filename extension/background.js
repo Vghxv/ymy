@@ -123,8 +123,10 @@ async function startDownload(id, titleHint) {
   port.onMessage.addListener((msg) => update(id, msg));
 
   port.onDisconnect.addListener(() => {
+    // Read lastError unconditionally, or Chrome logs "Unchecked runtime.lastError" on every normal exit.
+    const reason = chrome.runtime.lastError?.message;
     if (helpers.get(id) === port) helpers.delete(id);
-    if (isActive(jobs.get(id))) fail(id, chrome.runtime.lastError?.message);
+    if (isActive(jobs.get(id))) fail(id, reason);
   });
 
   port.postMessage({ type: "download", url: canonicalUrl(id), output_dir: outputDir });
