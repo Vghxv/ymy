@@ -35,10 +35,12 @@ def load_yt_dlp():
     return importlib.import_module("yt_dlp")
 
 
-def build_options(out_dir, ffmpeg_path, progress_hook, postprocessor_hook, js_options=None):
+def build_options(out_dir, temp_dir, ffmpeg_path, progress_hook, postprocessor_hook, js_options=None):
+    # Everything is downloaded and converted in temp_dir; yt-dlp moves only the
+    # finished MP3 into out_dir.
     options = {
         "format": "bestaudio/best",
-        "paths": {"home": out_dir},
+        "paths": {"home": out_dir, "temp": temp_dir},
         "outtmpl": OUTPUT_TEMPLATE,
         "windowsfilenames": True,
         "noplaylist": True,
@@ -88,7 +90,7 @@ class _Reporter:
             self._emit({"type": "progress", "stage": stage, "pct": pct})
 
 
-def _download_once(url, emit, yt_dlp, out_dir, ffmpeg_path, js_options):
+def _download_once(url, emit, yt_dlp, out_dir, temp_dir, ffmpeg_path, js_options):
     reporter = _Reporter(emit)
 
     def on_progress(data):
@@ -114,14 +116,17 @@ def _download_once(url, emit, yt_dlp, out_dir, ffmpeg_path, js_options):
             reporter.progress("converting", CONVERT_END)
             reporter.final_path = (data.get("info_dict") or {}).get("filepath")
 
-    options = build_options(out_dir, ffmpeg_path, on_progress, on_postprocess, js_options)
+    options = build_options(out_dir, temp_dir, ffmpeg_path, on_progress, on_postprocess, js_options)
     with yt_dlp.YoutubeDL(options) as ydl:
         result = ydl.extract_info(url, download=True)
         # yt-dlp's "finished" postprocessor hook carries the info_dict from *before* the
         # conversion, so final_path may point at the deleted source (.webm/.m4a). Try the
-        # result's path first and fall back to swapping the extension for .mp3.
-        candidates = [_path_from_result(result), reporter.final_path, _guess_path(ydl, result)]
-        candidates += [os.path.splitext(p)[0] + ".mp3" for p in candidates if p]
+        # result's path first and fall back to swapping the extension for .mp3. The hook's
+        # path is also still in temp_dir, so look for every name in out_dir.
+        names = [_path_from_result(result), reporter.final_path, _guess_path(ydl, result)]
+        names = [os.path.basename(p) for p in names if p]
+        names += [os.path.splitext(n)[0] + ".mp3" for n in names]
+        candidates = [os.path.join(out_dir, n) for n in names]
 
     path = next((p for p in candidates if p and p.lower().endswith(".mp3") and os.path.isfile(p)), None)
     if not path:
@@ -149,10 +154,11 @@ def run_job(
     resolve_dir=system.resolve_output_dir,
     js_options=system.js_runtime_options,
     output_dir=None,
+    temp_dir=system.temp_dir,
 ):
     """Run one download. Always ends by emitting exactly one 'done' or 'error'."""
     try:
-        path = _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir)
+        path = _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir, temp_dir)
     except HelperError as exc:
         error = exc
     except Exception as exc:
@@ -165,7 +171,7 @@ def run_job(
     emit(error.to_message())
 
 
-def _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir):
+def _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir, temp_dir):
     if not URL_RE.match(url or ""):
         raise HelperError("invalid_url", "That is not a YouTube Music track link.")
 
@@ -176,7 +182,7 @@ def _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir):
     out_dir = resolve_dir(chosen=output_dir) if output_dir else resolve_dir()
     yt_dlp = load()
     try:
-        return _download_once(url, emit, yt_dlp, out_dir, ffmpeg_path, js_options())
+        return _download_once(url, emit, yt_dlp, out_dir, temp_dir(), ffmpeg_path, js_options())
     except HelperError:
         raise
     except Exception as exc:
