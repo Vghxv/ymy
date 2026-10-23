@@ -9,7 +9,6 @@ import hashlib
 import json
 import os
 import sys
-import winreg
 
 HOST_NAME = "com.ymy.downloader"
 
@@ -48,6 +47,8 @@ def path_problem(path=PROJECT_DIR):
 
 
 def install():
+    import winreg
+
     problem = path_problem()
     if problem:
         sys.exit(problem)
@@ -82,6 +83,8 @@ def _registry_keys():
 
 
 def uninstall():
+    import winreg
+
     for key_path in _registry_keys():
         try:
             winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key_path)

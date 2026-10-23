@@ -40,4 +40,4 @@ Run `install.bat` again and restart the browser. If that doesn't help, check `%U
 
 ## Uninstall
 
-Run `uninstall.bat`, remove the extension, and delete `%USERPROFILE%\.ymy`.
+Run `python host\register.py --uninstall`, remove the extension, and delete `%USERPROFILE%\.ymy`.

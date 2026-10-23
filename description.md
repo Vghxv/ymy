@@ -21,6 +21,18 @@ A browser extension that saves YouTube Music tracks as MP3 files. Open a track, 
 
 If you move the project folder later, run `install.bat` again.
 
+### What the installer changes
+
+To connect the helper to your browsers, `install.bat` adds one registry key per browser, for your Windows user only (`HKEY_CURRENT_USER`, no admin rights needed):
+
+```
+HKCU\Software\Google\Chrome\NativeMessagingHosts\com.ymy.downloader
+HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.ymy.downloader
+HKCU\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.ymy.downloader
+```
+
+Each key points to `host\native\com.ymy.downloader.json`, which the installer writes along with its launcher, `host\native\host.bat`. Python, ffmpeg, Deno and Poetry, if the installer has to add them, are installed the usual way through winget or pipx.
+
 ## Usage
 
 1. Open a track on [music.youtube.com](https://music.youtube.com). The icon turns **red** (it is gray on pages with nothing to download, such as the home page or a playlist).
@@ -93,9 +105,20 @@ Everything runs on your computer. The extension only talks to YouTube Music (to 
 
 ## Uninstall
 
-1. Run **`uninstall.bat`** to disconnect the helper from your browser.
+1. Open a terminal in the project folder and run `python host\register.py --uninstall`. It removes the registry keys and the files in `host\native\`, which disconnects the helper from your browser.
 2. Remove the extension from `chrome://extensions`.
 3. Optionally, delete the project folder and `%USERPROFILE%\.ymy`.
+
+## Development
+
+Run the tests from the project folder:
+
+```
+npm test                          # extension, needs Node 22
+poetry run npm run test:host      # helper
+```
+
+GitHub Actions runs both on Windows on every push to `main` and on every pull request (see `.github/workflows/test.yml`).
 
 ---
 

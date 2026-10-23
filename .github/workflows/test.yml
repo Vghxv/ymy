@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # register.py imports winreg, so the host tests need Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Poetry must exist before setup-python so it can cache the Poetry environment.
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: poetry
+
+      - name: Install Python dependencies
+        run: |
+          poetry env use python
+          poetry install --no-root --no-interaction
+
+      - name: JS tests
+        run: npm test
+
+      - name: Host tests
+        run: poetry run python -m unittest discover -s host/tests -t host
