@@ -11,7 +11,8 @@ from .protocol import ProtocolError, read_message, write_message
 
 log = logging.getLogger("ytm_host")
 
-HANDLERS = {"check": run_check, "download": run_job}
+# request type -> (handler, the request field passed as its first argument)
+HANDLERS = {"check": (run_check, "url"), "download": (run_job, "url"), "open": (system.run_open, "path")}
 
 
 def _binary_stdio():
@@ -52,15 +53,18 @@ def main():
         emit(_protocol_error("The helper got a malformed request."))
         return 1
 
-    handler = HANDLERS.get(request.get("type")) if isinstance(request, dict) else None
-    if not handler:
+    entry = HANDLERS.get(request.get("type")) if isinstance(request, dict) else None
+    if not entry:
         emit(_protocol_error("The helper got an unknown request."))
         return 1
 
+    handler, field = entry
+    argument = request.get(field)
+    argument = argument if isinstance(argument, str) else ""
     output_dir = request.get("output_dir")
     output_dir = output_dir if isinstance(output_dir, str) and output_dir.strip() else None
-    log.info("%s requested: %s (folder: %s)", request["type"], request.get("url"), output_dir or "default")
-    handler(request.get("url", ""), emit, output_dir=output_dir)
+    log.info("%s requested: %s (folder: %s)", request["type"], argument, output_dir or "default")
+    handler(argument, emit, output_dir=output_dir)
     return 0
 
 

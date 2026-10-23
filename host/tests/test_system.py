@@ -100,5 +100,50 @@ class AugmentPathTests(unittest.TestCase):
             self.assertEqual(environ["PATH"].split(os.pathsep).count(links), 1)
 
 
+class OpenFolderTests(unittest.TestCase):
+    def run_open(self, path, resolve_dir=None, popen=None):
+        calls, messages = [], []
+        system.run_open(
+            path,
+            messages.append,
+            output_dir="D:\Music",
+            resolve_dir=resolve_dir or (lambda chosen: chosen),
+            popen=popen or (lambda args, **kwargs: calls.append(args)),
+        )
+        return calls, messages
+
+    def test_opens_the_folder(self):
+        calls, messages = self.run_open("")
+        self.assertEqual(calls, [["explorer.exe", os.path.normpath("D:\Music")]])
+        self.assertEqual(messages, [{"type": "opened"}])
+
+    def test_selects_an_existing_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            song = os.path.join(folder, "song.mp3")
+            open(song, "w").close()
+            calls, _ = self.run_open(song)
+        self.assertEqual(calls, [["explorer.exe", "/select,", song]])
+
+    def test_missing_file_falls_back_to_the_folder(self):
+        calls, _ = self.run_open("D:\Music\gone.mp3")
+        self.assertEqual(calls[0][1:], [os.path.normpath("D:\Music")])
+
+    def test_unusable_folder_is_reported(self):
+        def broken(chosen):
+            raise HelperError("disk", "Can't write there.")
+
+        calls, messages = self.run_open("", resolve_dir=broken)
+        self.assertEqual(calls, [])
+        self.assertEqual(messages, [{"type": "error", "code": "disk", "message": "Can't write there."}])
+
+    def test_explorer_failing_to_start_is_reported(self):
+        def fails(args, **kwargs):
+            raise OSError("nope")
+
+        with self.assertLogs("ytm_host.system"):
+            _, messages = self.run_open("", popen=fails)
+        self.assertEqual(messages[0]["code"], "explorer")
+
+
 if __name__ == "__main__":
     unittest.main()

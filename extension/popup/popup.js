@@ -1,5 +1,5 @@
 import { idleJob, noTrackJob, statusText } from "../src/jobs.js";
-import { HOST_NAME } from "../src/native.js";
+import { HOST_NAME, helperErrorMessage } from "../src/native.js";
 import { getAutoCheck, getOutputDir } from "../src/settings.js";
 import { canonicalUrl, cleanTabTitle, trackId } from "../src/track.js";
 
@@ -10,6 +10,7 @@ const statusEl = document.getElementById("status");
 const actionEl = document.getElementById("action");
 const savedEl = document.getElementById("saved");
 const checkEl = document.getElementById("check");
+const openEl = document.getElementById("open");
 
 const INDETERMINATE = new Set(["starting"]);
 const ACTION_LABELS = { idle: "Download", error: "Retry", done: "Download again" };
@@ -18,11 +19,13 @@ const CHECK_TEXT = {
   missing: "Not in the download folder",
   failed: "Couldn't check the folder",
 };
+const OPEN_FAILED = "Couldn't open the folder";
 
 let port = null;
 let shown = null; // last job rendered
 let existingPath = ""; // where this track already sits in the download folder, if anywhere
 let checkState = ""; // "", "checking", "missing" or "failed"
+let openError = ""; // why the last "Open folder" click failed
 
 function render(job) {
   shown = job;
@@ -36,15 +39,34 @@ function render(job) {
   savedEl.title = existingPath;
   checkEl.hidden = !idle || !!existingPath || checkState === "checking" || checkState === "missing";
   fillEl.style.width = INDETERMINATE.has(job.state) ? "" : `${job.pct || 0}%`;
-  statusEl.textContent = alreadySaved ? "Already downloaded" : (idle && CHECK_TEXT[checkState]) || statusText(job);
+  statusEl.textContent =
+    openError || (alreadySaved ? "Already downloaded" : (idle && CHECK_TEXT[checkState]) || statusText(job));
   statusEl.title = alreadySaved ? existingPath : job.path || "";
   const label = alreadySaved ? ACTION_LABELS.done : ACTION_LABELS[job.state];
   actionEl.hidden = !label || !port;
   if (label) actionEl.textContent = label;
 }
 
+/** Show the download folder in Explorer, with this track's MP3 selected when we know where it is. */
+async function openFolder() {
+  openError = "";
+  const path = existingPath || (shown && shown.state === "done" && shown.path) || "";
+  try {
+    const reply = await chrome.runtime.sendNativeMessage(HOST_NAME, {
+      type: "open",
+      path,
+      output_dir: await getOutputDir(),
+    });
+    if (!reply || reply.type !== "opened") openError = (reply && reply.message) || OPEN_FAILED;
+  } catch (error) {
+    openError = helperErrorMessage(error.message);
+  }
+  if (shown) render(shown);
+}
+
 /** Ask the helper whether this exact track is already somewhere under the download folder. */
 async function checkSaved(id) {
+  openError = "";
   checkState = "checking";
   if (shown) render(shown);
   try {
@@ -67,6 +89,7 @@ async function checkSaved(id) {
 }
 
 async function main() {
+  openEl.addEventListener("click", openFolder);
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const id = tab && trackId(tab.url);
   if (!id) {
@@ -81,6 +104,7 @@ async function main() {
     if (msg.type === "job") render(msg.job);
   });
   actionEl.addEventListener("click", () => {
+    openError = "";
     actionEl.hidden = true;
     port.postMessage({ cmd: "download", url: tab.url, title });
   });
