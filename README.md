@@ -10,7 +10,7 @@ for more details, see [description.md](description.md).
 
 ## Install
 
-1. Clone this repo somewhere permanent
+1. Download `ymy-vX.Y.Z.zip` from [Releases](https://github.com/Vghxv/ymy/releases/latest) and extract it somewhere permanent (or clone this repo).
 2. Run `install.bat`.
 3. Restart the browser.
 4. Go to `chrome://extensions`, enable Developer mode, **Load unpacked**, pick the `extension` folder.
