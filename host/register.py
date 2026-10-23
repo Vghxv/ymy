@@ -11,7 +11,7 @@ import os
 import sys
 import winreg
 
-HOST_NAME = "com.ytm_mp3.downloader"
+HOST_NAME = "com.ymy.downloader"
 
 REGISTRY_BASES = [
     r"Software\Google\Chrome\NativeMessagingHosts",
@@ -62,7 +62,7 @@ def install():
         json.dump(
             {
                 "name": HOST_NAME,
-                "description": "YT Music MP3 helper",
+                "description": "ymy helper",
                 "path": LAUNCHER_PATH,
                 "type": "stdio",
                 "allowed_origins": ["chrome-extension://{}/".format(extension_id())],

@@ -1,4 +1,6 @@
-# YT Music MP3
+# ymy
+
+*YouTube Music Yum*: download tracks from YouTube Music as MP3s.
 
 A browser extension that saves YouTube Music tracks as MP3 files. Open a track, click the toolbar icon, click **Download**.
 
@@ -11,11 +13,11 @@ A browser extension that saves YouTube Music tracks as MP3 files. Open a track, 
 
 ## Install
 
-1. Download or clone this repository to a folder you'll keep, for example `C:\Tools\ytm-mp3`. The folder path must not contain a `%` sign.
+1. Download or clone this repository to a folder you'll keep, for example `C:\Tools\ymy`. The folder path must not contain a `%` sign.
 2. Double-click **`install.bat`**. It installs what's missing (Python, ffmpeg, Deno, Poetry), sets up the downloader and connects it to your browser. If it installs Python, close the window and run `install.bat` again.
 3. Restart your browser.
 4. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder inside this project.
-5. Pin the **YT Music MP3** icon to the toolbar.
+5. Pin the **ymy** icon to the toolbar.
 
 If you move the project folder later, run `install.bat` again.
 
@@ -33,7 +35,7 @@ By default, files go to your **Music** folder (or **Downloads** if Music isn't a
 
 To choose another folder: right-click the icon → **Options**, type a full path such as `D:\Music\YouTube` and click **Save**. The folder is created if needed. **Use default** goes back to the Music folder.
 
-Only finished MP3s go to the download folder. Partial downloads and the audio before conversion are kept in `%USERPROFILE%\.ytm-mp3\temp`, which you can empty whenever no download is running.
+Only finished MP3s go to the download folder. Partial downloads and the audio before conversion are kept in `%USERPROFILE%\.ymy\temp`, which you can empty whenever no download is running.
 
 ### Already downloaded?
 
@@ -73,7 +75,7 @@ Every package is installed at an exact, checksum-verified version listed in `poe
 | YouTube changed something | Update yt-dlp (see [Updating](#updating)). |
 | YouTube is asking for verification / rate-limiting | Wait a while and try again. |
 | This track is age-restricted / needs a paid subscription | These tracks can't be downloaded. |
-| Anything else | Look at the log: `%USERPROFILE%\.ytm-mp3\host.log` |
+| Anything else | Look at the log: `%USERPROFILE%\.ymy\host.log` |
 
 If `install.bat` reports that the project folder path contains `%`, move or rename the folder and run it again.
 
@@ -85,13 +87,13 @@ If `install.bat` reports that the project folder path contains `%`, move or rena
 
 ## Privacy
 
-Everything runs on your computer. The extension only talks to YouTube Music (to download) and to the local helper. Nothing is collected or sent anywhere else. The helper keeps a small log in `%USERPROFILE%\.ytm-mp3\host.log`.
+Everything runs on your computer. The extension only talks to YouTube Music (to download) and to the local helper. Nothing is collected or sent anywhere else. The helper keeps a small log in `%USERPROFILE%\.ymy\host.log`.
 
 ## Uninstall
 
 1. Run **`uninstall.bat`** to disconnect the helper from your browser.
 2. Remove the extension from `chrome://extensions`.
-3. Optionally, delete the project folder and `%USERPROFILE%\.ytm-mp3`.
+3. Optionally, delete the project folder and `%USERPROFILE%\.ymy`.
 
 ---
 

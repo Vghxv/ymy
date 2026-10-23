@@ -13,8 +13,8 @@ class RegisterTests(unittest.TestCase):
         self.assertEqual(register.LAUNCHER.count("%"), 2)  # only the two %~dp0
 
     def test_a_percent_sign_in_the_project_path_is_refused(self):
-        self.assertIn("%", register.path_problem(r"C:\Users\me\my%TEMP%stuff\ytm-mp3"))
-        self.assertEqual(register.path_problem(r"C:\Users\me\Music tools & more (x)\ytm-mp3"), "")
+        self.assertIn("%", register.path_problem(r"C:\Users\me\my%TEMP%stuff\ymy"))
+        self.assertEqual(register.path_problem(r"C:\Users\me\Music tools & more (x)\ymy"), "")
 
 
 if __name__ == "__main__":

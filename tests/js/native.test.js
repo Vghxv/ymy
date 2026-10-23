@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { HOST_NAME, helperErrorMessage } from "../../extension/src/native.js";
 
 test("helper name matches the native messaging registration", () => {
-  assert.equal(HOST_NAME, "com.ytm_mp3.downloader");
+  assert.equal(HOST_NAME, "com.ymy.downloader");
 });
 
 test("helperErrorMessage explains the common failures", () => {

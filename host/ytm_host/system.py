@@ -6,7 +6,7 @@ import shutil
 
 from .errors import HelperError
 
-APP_DIR_NAME = ".ytm-mp3"
+APP_DIR_NAME = ".ymy"
 
 
 def config_dir():

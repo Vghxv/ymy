@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo === YT Music MP3 installer ===
+echo === ymy installer ===
 
 python --version >nul 2>nul
 if errorlevel 1 (
