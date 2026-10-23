@@ -1,5 +1,7 @@
 # ymy
 
+[![Tests](https://github.com/Vghxv/ymy/actions/workflows/test.yml/badge.svg)](https://github.com/Vghxv/ymy/actions/workflows/test.yml)
+
 Browser extension that downloads YouTube Music tracks as MP3s.
 
 Windows 10/11, Chrome, Edge or Brave.
