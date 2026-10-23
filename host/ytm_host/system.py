@@ -1,10 +1,14 @@
 """Looking around the machine: app folder, output folder, ffmpeg, JavaScript runtime."""
 
 import glob
+import logging
 import os
 import shutil
+import subprocess
 
 from .errors import HelperError
+
+log = logging.getLogger("ytm_host.system")
 
 APP_DIR_NAME = ".ymy"
 
@@ -96,3 +100,28 @@ def js_runtime_options(which=shutil.which):
     if not which("deno") and which("node"):
         return {"js_runtimes": {"node": {}}}
     return {}
+
+
+def explorer_args(folder, path=None):
+    """Show the folder in Explorer, with the file selected when there is one."""
+    if path and os.path.isfile(path):
+        return ["explorer.exe", "/select,", os.path.normpath(path)]
+    return ["explorer.exe", os.path.normpath(folder)]
+
+
+def run_open(path, emit, output_dir=None, resolve_dir=resolve_output_dir, popen=subprocess.Popen):
+    """Answer an 'open' request with one 'opened' or 'error' message."""
+    try:
+        folder = resolve_dir(chosen=output_dir)
+        args = explorer_args(folder, path)
+        # Explorer's exit code means nothing, so only a failure to start it counts.
+        popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except HelperError as exc:
+        emit(exc.to_message())
+        return
+    except OSError:
+        log.exception("explorer failed to start")
+        emit({"type": "error", "code": "explorer", "message": "Couldn't open Explorer."})
+        return
+    log.info("opened %s", args[-1])
+    emit({"type": "opened"})

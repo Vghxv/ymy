@@ -35,6 +35,8 @@ By default, files go to your **Music** folder (or **Downloads** if Music isn't a
 
 To choose another folder: right-click the icon → **Options**, type a full path such as `D:\Music\YouTube` and click **Save**. The folder is created if needed. **Use default** goes back to the Music folder.
 
+The folder icon at the top of the popup opens the download folder in Explorer, with the track selected if it was just downloaded or found there.
+
 Only finished MP3s go to the download folder. Partial downloads and the audio before conversion are kept in `%USERPROFILE%\.ymy\temp`, which you can empty whenever no download is running.
 
 ### Already downloaded?
