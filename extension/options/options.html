@@ -19,6 +19,25 @@
       <button class="button primary" type="submit">Save</button>
     </div>
   </form>
+
+  <section class="form section">
+    <label class="check">
+      <input id="auto-check" type="checkbox">
+      <span>Check for downloaded songs automatically when the popup opens</span>
+    </label>
+    <div class="warning" role="note">
+      <strong>Before turning this on:</strong> a check searches the download folder and every subfolder for the track.
+      <ul>
+        <li><strong>Network folders:</strong> if the download folder is on another computer (<code>\\server\share</code>
+          or a mapped network drive), Windows connects to that computer on every check and sends it your Windows
+          sign-in details (a password hash), which someone running that computer could try to crack. Only use a network folder you trust.</li>
+        <li><strong>Large folders:</strong> searching a big folder, or a whole drive like <code>C:\</code>, can take
+          minutes and keeps the disk busy. Use a folder that holds only your music.</li>
+      </ul>
+      With this off, nothing is searched until you click <strong>Check folder</strong> in the popup.
+    </div>
+    <span id="check-status" class="status" role="status"></span>
+  </section>
   <script type="module" src="options.js"></script>
 </body>
 </html>

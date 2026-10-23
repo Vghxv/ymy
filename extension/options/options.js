@@ -1,13 +1,15 @@
-import { OUTPUT_DIR_KEY, getOutputDir, outputDirError } from "../src/settings.js";
+import { AUTO_CHECK_KEY, OUTPUT_DIR_KEY, getAutoCheck, getOutputDir, outputDirError } from "../src/settings.js";
 
 const form = document.getElementById("form");
 const dirEl = document.getElementById("dir");
 const statusEl = document.getElementById("status");
 const resetEl = document.getElementById("reset");
+const autoCheckEl = document.getElementById("auto-check");
+const checkStatusEl = document.getElementById("check-status");
 
-function show(text, kind = "") {
-  statusEl.textContent = text;
-  statusEl.dataset.kind = kind;
+function show(text, kind = "", el = statusEl) {
+  el.textContent = text;
+  el.dataset.kind = kind;
 }
 
 async function save(value) {
@@ -30,6 +32,15 @@ form.addEventListener("submit", (event) => {
 resetEl.addEventListener("click", () => save(""));
 dirEl.addEventListener("input", () => show(""));
 
+autoCheckEl.addEventListener("change", async () => {
+  await chrome.storage.sync.set({ [AUTO_CHECK_KEY]: autoCheckEl.checked });
+  show(autoCheckEl.checked ? "Saved. The popup checks by itself." : "Saved. Checks only run when you click.", "ok", checkStatusEl);
+});
+
 getOutputDir().then((dir) => {
   dirEl.value = dir;
+});
+
+getAutoCheck().then((on) => {
+  autoCheckEl.checked = on;
 });

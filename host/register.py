@@ -20,10 +20,16 @@ REGISTRY_BASES = [
 ]
 
 HOST_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(HOST_DIR)
 NATIVE_DIR = os.path.join(HOST_DIR, "native")
 LAUNCHER_PATH = os.path.join(NATIVE_DIR, "host.bat")
 MANIFEST_PATH = os.path.join(NATIVE_DIR, HOST_NAME + ".json")
-EXTENSION_MANIFEST = os.path.join(os.path.dirname(HOST_DIR), "extension", "manifest.json")
+EXTENSION_MANIFEST = os.path.join(PROJECT_DIR, "extension", "manifest.json")
+VENV_PYTHON = os.path.join(PROJECT_DIR, ".venv", "Scripts", "python.exe")
+
+# Paths are relative to the launcher itself (host\native\), so no folder name is ever
+# pasted into the batch file, where cmd would expand any % in it.
+LAUNCHER = '@echo off\r\ncd /d "%~dp0.."\r\n"%~dp0..\\..\\.venv\\Scripts\\python.exe" -X utf8 -m ytm_host\r\n'
 
 
 def extension_id(manifest_path=EXTENSION_MANIFEST):
@@ -35,10 +41,12 @@ def extension_id(manifest_path=EXTENSION_MANIFEST):
 
 
 def install():
+    if not os.path.isfile(VENV_PYTHON):
+        sys.exit("No virtual environment at {}. Run install.bat (it runs 'poetry install').".format(VENV_PYTHON))
     os.makedirs(NATIVE_DIR, exist_ok=True)
 
     with open(LAUNCHER_PATH, "w", newline="") as handle:
-        handle.write('@echo off\r\ncd /d "{}"\r\n"{}" -X utf8 -m ytm_host\r\n'.format(HOST_DIR, sys.executable))
+        handle.write(LAUNCHER)
 
     with open(MANIFEST_PATH, "w") as handle:
         json.dump(

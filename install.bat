@@ -28,10 +28,21 @@ if errorlevel 1 (
   )
 )
 
-echo Installing yt-dlp...
-python -m pip install -U -r requirements.txt --disable-pip-version-check
+where poetry >nul 2>nul
 if errorlevel 1 (
-  echo pip failed. See the message above.
+  if not exist "%USERPROFILE%\.local\bin\poetry.exe" (
+    echo Installing Poetry with pipx...
+    python -m pip install --user --upgrade pipx --disable-pip-version-check
+    python -m pipx install poetry
+  )
+  set "PATH=%USERPROFILE%\.local\bin;%PATH%"
+)
+
+echo Installing yt-dlp and its dependencies at the versions in poetry.lock...
+call poetry env use python
+call poetry install --no-root
+if errorlevel 1 (
+  echo poetry install failed. See the message above.
   pause
   exit /b 1
 )

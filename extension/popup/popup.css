@@ -107,6 +107,8 @@ body {
 }
 
 .status {
+  min-width: 0;
+  margin-right: auto;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -128,14 +130,14 @@ body {
   border-color: var(--accent);
 }
 
-[data-state="idle"] .action {
+[data-state="idle"] #action {
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
   font-weight: 600;
 }
 
-[data-state="idle"] .action:hover {
+[data-state="idle"] #action:hover {
   background: color-mix(in srgb, var(--accent) 85%, #000);
 }
 
@@ -152,8 +154,7 @@ body {
   white-space: normal;
 }
 
-[data-state="starting"] .fill,
-[data-state="updating"] .fill {
+[data-state="starting"] .fill {
   width: 100%;
   background: repeating-linear-gradient(
     135deg,

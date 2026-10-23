@@ -63,23 +63,16 @@ class RunJobTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.events = []
-        self.update_calls = 0
 
     def tearDown(self):
         self.folder.cleanup()
 
-    def run_job(self, yt_dlp_behaviours, url=GOOD_URL, ffmpeg="ffmpeg", update_result=True, reload_behaviours=None):
+    def run_job(self, yt_dlp_behaviours, url=GOOD_URL, ffmpeg="ffmpeg"):
         loads = []
 
-        def load(reload=False):
-            loads.append(reload)
-            if reload:
-                return make_fake_yt_dlp(reload_behaviours or [])
+        def load():
+            loads.append(True)
             return make_fake_yt_dlp(yt_dlp_behaviours)
-
-        def update():
-            self.update_calls += 1
-            return update_result
 
         run_job(
             url,
@@ -87,7 +80,6 @@ class RunJobTests(unittest.TestCase):
             load=load,
             find_ffmpeg=lambda: ffmpeg,
             resolve_dir=lambda: self.folder.name,
-            update=update,
             js_options=lambda: {},
         )
         self.loads = loads
@@ -138,37 +130,16 @@ class RunJobTests(unittest.TestCase):
         self.assertEqual(self.last()["code"], "ffmpeg_missing")
         self.assertEqual(self.loads, [])
 
-    def test_unavailable_track_reports_a_friendly_error_without_updating(self):
+    def test_unavailable_track_reports_a_friendly_error(self):
         self.run_job([Exception("ERROR: [youtube] dQw4w9WgXcQ: Video unavailable")])
         self.assertEqual(self.last(), {"type": "error", "code": "unavailable", "message": "This track is unavailable."})
-        self.assertEqual(self.update_calls, 0)
 
-    def test_extractor_breakage_updates_and_retries_once(self):
-        self.run_job(
-            [Exception("ERROR: unable to download video data: HTTP Error 403: Forbidden")],
-            reload_behaviours=[successful_download()],
-        )
-        self.assertEqual(self.update_calls, 1)
-        self.assertEqual(self.loads, [False, True])
-        self.assertIn({"type": "progress", "stage": "updating", "pct": 0}, self.events)
-        self.assertEqual(self.last()["type"], "done")
-
-    def test_failed_update_reports_the_original_problem(self):
-        self.run_job(
-            [Exception("ERROR: Unable to extract player response")],
-            update_result=False,
-        )
+    def test_extractor_breakage_is_reported_without_updating_or_retrying(self):
+        self.run_job([Exception("ERROR: unable to download video data: HTTP Error 403: Forbidden")])
         self.assertEqual(self.last()["code"], "extractor_broken")
-        self.assertEqual(self.update_calls, 1)
-        self.assertEqual(self.loads, [False])
-
-    def test_still_broken_after_update_does_not_loop(self):
-        self.run_job(
-            [Exception("HTTP Error 403: Forbidden")],
-            reload_behaviours=[Exception("HTTP Error 403: Forbidden")],
-        )
-        self.assertEqual(self.update_calls, 1)
-        self.assertEqual(self.last()["code"], "extractor_broken")
+        self.assertEqual(self.loads, [True])
+        self.assertNotIn("updating", {e.get("stage") for e in self.events})
+        self.assertEqual(self.types().count("error"), 1)
 
     def test_missing_output_file_is_an_error_not_a_fake_success(self):
         def finishes_without_a_file(options):
