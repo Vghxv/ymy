@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  # For a tag that was pushed before this workflow existed.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release, e.g. v1.0.0
+        required: true
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    with:
+      ref: ${{ inputs.tag || github.ref_name }}
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Check the tag matches the version
+        run: |
+          v="${TAG#v}"
+          grep -q "\"version\": \"$v\"" extension/manifest.json || { echo "extension/manifest.json is not $v"; exit 1; }
+          grep -q "^version = \"$v\"" pyproject.toml || { echo "pyproject.toml is not $v"; exit 1; }
+
+      # Pathspecs instead of export-ignore, so tags made before .gitattributes existed package the same way.
+      - name: Build zip
+        run: |
+          git archive --format=zip --prefix=ymy/ -o "ymy-$TAG.zip" HEAD -- . \
+            ':(exclude).github' ':(exclude)tests' ':(exclude)host/tests' ':(exclude)assets'
+
+      - name: Create release
+        run: gh release create "$TAG" "ymy-$TAG.zip" --title "$TAG" --generate-notes --verify-tag
