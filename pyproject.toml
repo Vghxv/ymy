@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ytm-mp3"
+name = "ymy"
 version = "1.0.0"
 description = "Native messaging helper that saves YouTube Music audio you have the rights to as MP3 files."
 authors = []

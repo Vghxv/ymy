@@ -8,7 +8,7 @@ MAX_LOG_BYTES = 256 * 1024
 
 
 def setup():
-    """Log to ~/.ytm-mp3/host.log. Logging problems must never break a download."""
+    """Log to ~/.ymy/host.log. Logging problems must never break a download."""
     folder = config_dir()
     try:
         os.makedirs(folder, exist_ok=True)

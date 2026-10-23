@@ -11,7 +11,7 @@ import os
 import sys
 import winreg
 
-HOST_NAME = "com.ytm_mp3.downloader"
+HOST_NAME = "com.ymy.downloader"
 
 REGISTRY_BASES = [
     r"Software\Google\Chrome\NativeMessagingHosts",
