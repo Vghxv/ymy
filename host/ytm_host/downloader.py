@@ -4,12 +4,10 @@ import importlib
 import logging
 import os
 import re
-import sys
 
 from . import system
-from .errors import UPDATABLE, HelperError
+from .errors import HelperError
 from .library import VIDEO_ID
-from .updater import update_yt_dlp
 
 log = logging.getLogger("ytm_host.downloader")
 
@@ -33,11 +31,7 @@ class _YdlLogger:
         log.error(message)
 
 
-def load_yt_dlp(reload=False):
-    if reload:
-        for name in [n for n in sys.modules if n == "yt_dlp" or n.startswith("yt_dlp.")]:
-            del sys.modules[name]
-        importlib.invalidate_caches()
+def load_yt_dlp():
     return importlib.import_module("yt_dlp")
 
 
@@ -153,13 +147,12 @@ def run_job(
     load=load_yt_dlp,
     find_ffmpeg=system.find_ffmpeg,
     resolve_dir=system.resolve_output_dir,
-    update=update_yt_dlp,
     js_options=system.js_runtime_options,
     output_dir=None,
 ):
     """Run one download. Always ends by emitting exactly one 'done' or 'error'."""
     try:
-        path = _run(url, emit, load, find_ffmpeg, resolve_dir, update, js_options, output_dir)
+        path = _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir)
     except HelperError as exc:
         error = exc
     except Exception as exc:
@@ -172,7 +165,7 @@ def run_job(
     emit(error.to_message())
 
 
-def _run(url, emit, load, find_ffmpeg, resolve_dir, update, js_options, output_dir):
+def _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir):
     if not URL_RE.match(url or ""):
         raise HelperError("invalid_url", "That is not a YouTube Music track link.")
 
@@ -182,20 +175,11 @@ def _run(url, emit, load, find_ffmpeg, resolve_dir, update, js_options, output_d
 
     out_dir = resolve_dir(chosen=output_dir) if output_dir else resolve_dir()
     yt_dlp = load()
-    updated = False
-
-    while True:
-        try:
-            return _download_once(url, emit, yt_dlp, out_dir, ffmpeg_path, js_options())
-        except HelperError:
-            raise
-        except Exception as exc:
-            error = HelperError.from_text(str(exc))
-            log.warning("attempt failed (%s): %s", error.code, exc)
-            if error.code in UPDATABLE and not updated:
-                updated = True
-                emit({"type": "progress", "stage": "updating", "pct": 0})
-                if update():
-                    yt_dlp = load(reload=True)
-                    continue
-            raise error
+    try:
+        return _download_once(url, emit, yt_dlp, out_dir, ffmpeg_path, js_options())
+    except HelperError:
+        raise
+    except Exception as exc:
+        error = HelperError.from_text(str(exc))
+        log.warning("download failed (%s): %s", error.code, exc)
+        raise error

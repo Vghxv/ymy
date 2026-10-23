@@ -1,6 +1,6 @@
 import unittest
 
-from ytm_host.errors import UPDATABLE, HelperError, classify, clean_message
+from ytm_host.errors import HelperError, classify, clean_message
 
 
 class ClassifyTests(unittest.TestCase):
@@ -28,9 +28,6 @@ class ClassifyTests(unittest.TestCase):
 
     def test_empty_error(self):
         self.assertEqual(classify(""), ("unknown", "Download failed."))
-
-    def test_only_extractor_breakage_triggers_an_update(self):
-        self.assertEqual(UPDATABLE, {"extractor_broken"})
 
 
 class CleanMessageTests(unittest.TestCase):

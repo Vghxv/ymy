@@ -7,9 +7,6 @@ PREFIX_RE = re.compile(r"^(ERROR:\s*)?(\[[^\]]+\]\s*([\w-]+:\s*)?)?")
 
 MAX_MESSAGE_CHARS = 200
 
-# Only these codes are worth fixing by updating yt-dlp.
-UPDATABLE = frozenset({"extractor_broken"})
-
 
 class HelperError(Exception):
     def __init__(self, code, message=None):
@@ -48,7 +45,7 @@ RULES = [
      r"HTTP Error 4\d\d|Unable to extract|nsig|signature|Requested format is not available|"
      r"player response|Failed to extract|unable to download video data|JavaScript runtime|"
      r"No supported JavaScript|challenge",
-     "YouTube changed something and the downloader couldn't keep up."),
+     "YouTube changed something. Update yt-dlp (README: Updating yt-dlp)."),
     ("network",
      r"getaddrinfo|Temporary failure|timed out|Connection (reset|refused|aborted)|"
      r"Network is unreachable|Unable to download (webpage|API JSON)|Name or service|URLError|"

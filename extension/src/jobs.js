@@ -1,4 +1,4 @@
-const ACTIVE_STATES = new Set(["starting", "downloading", "converting", "updating"]);
+const ACTIVE_STATES = new Set(["starting", "downloading", "converting"]);
 
 /** How long a finished job is shown again when the popup is reopened. */
 export const DONE_SHOWN_MS = 30_000;
@@ -63,8 +63,6 @@ export function statusText(job) {
       return `Downloading… ${job.pct}%`;
     case "converting":
       return "Converting to MP3…";
-    case "updating":
-      return "Updating downloader…";
     case "done":
       return "Done";
     case "error":

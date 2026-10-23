@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "ytm-mp3"
+version = "1.0.0"
+description = "Native messaging helper that downloads YouTube Music tracks as MP3."
+authors = []
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+# Exact version on purpose: change it only after checking the release (see README, "Updating yt-dlp").
+yt-dlp = { version = "2026.10.21", extras = ["default"] }
+
+[build-system]
+requires = ["poetry-core>=1.9"]
+build-backend = "poetry.core.masonry.api"
