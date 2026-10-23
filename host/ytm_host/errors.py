@@ -45,7 +45,7 @@ RULES = [
      r"HTTP Error 4\d\d|Unable to extract|nsig|signature|Requested format is not available|"
      r"player response|Failed to extract|unable to download video data|JavaScript runtime|"
      r"No supported JavaScript|challenge",
-     "YouTube changed something. Update yt-dlp (README: Updating yt-dlp)."),
+     "YouTube changed something. Update yt-dlp (see Updating in the README)."),
     ("network",
      r"getaddrinfo|Temporary failure|timed out|Connection (reset|refused|aborted)|"
      r"Network is unreachable|Unable to download (webpage|API JSON)|Name or service|URLError|"

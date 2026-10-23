@@ -40,7 +40,17 @@ def extension_id(manifest_path=EXTENSION_MANIFEST):
     return "".join(chr(ord("a") + int(c, 16)) for c in digest)
 
 
+def path_problem(path=PROJECT_DIR):
+    """Chrome starts the helper through cmd.exe, which expands %NAME% in the path even inside quotes."""
+    if "%" in path:
+        return "The project folder path contains '%' ({}). Move or rename the folder so its path has no '%', then run install.bat again.".format(path)
+    return ""
+
+
 def install():
+    problem = path_problem()
+    if problem:
+        sys.exit(problem)
     if not os.path.isfile(VENV_PYTHON):
         sys.exit("No virtual environment at {}. Run install.bat (it runs 'poetry install').".format(VENV_PYTHON))
     os.makedirs(NATIVE_DIR, exist_ok=True)

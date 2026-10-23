@@ -12,6 +12,10 @@ class RegisterTests(unittest.TestCase):
         self.assertNotIn(register.PROJECT_DIR, register.LAUNCHER)
         self.assertEqual(register.LAUNCHER.count("%"), 2)  # only the two %~dp0
 
+    def test_a_percent_sign_in_the_project_path_is_refused(self):
+        self.assertIn("%", register.path_problem(r"C:\Users\me\my%TEMP%stuff\ytm-mp3"))
+        self.assertEqual(register.path_problem(r"C:\Users\me\Music tools & more (x)\ytm-mp3"), "")
+
 
 if __name__ == "__main__":
     unittest.main()
