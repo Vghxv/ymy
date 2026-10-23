@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ymy"
-version = "1.0.0"
+version = "1.0.1"
 description = "Native messaging helper that saves YouTube Music audio you have the rights to as MP3 files."
 authors = []
 package-mode = false
