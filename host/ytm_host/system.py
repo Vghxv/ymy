@@ -13,6 +13,11 @@ def config_dir():
     return os.path.join(os.path.expanduser("~"), APP_DIR_NAME)
 
 
+def temp_dir():
+    """Where yt-dlp keeps partial downloads and the audio before MP3 conversion."""
+    return os.path.join(config_dir(), "temp")
+
+
 def expand_dir(path):
     """A folder typed in the extension options, with ~ and %VARS% expanded."""
     return os.path.expandvars(os.path.expanduser(path.strip()))

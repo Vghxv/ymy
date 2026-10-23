@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import unittest
 from types import SimpleNamespace
@@ -39,20 +40,32 @@ def make_fake_yt_dlp(behaviours):
 
 
 def successful_download(filename="Artist - Song.mp3", report_via_hook=True):
+    """Like yt-dlp with a temp path: download and convert in temp, then move the MP3 home."""
+
     def play(options):
         out_dir = options["paths"]["home"]
+        work_dir = options["paths"]["temp"]
+        os.makedirs(work_dir, exist_ok=True)
+        source = os.path.join(work_dir, os.path.splitext(filename)[0] + ".webm")
+        converted = os.path.join(work_dir, filename)
         path = os.path.join(out_dir, filename)
+        with open(source, "wb") as handle:
+            handle.write(b"webm")
         info = {"title": "Song", "artist": "Artist", "track": "Song"}
         options["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 50, "total_bytes": 100, "info_dict": info})
         options["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 100, "total_bytes": 100, "info_dict": info})
         options["progress_hooks"][0]({"status": "finished", "info_dict": info})
         options["postprocessor_hooks"][0]({"status": "started", "postprocessor": "ExtractAudio", "info_dict": info})
-        with open(path, "wb") as handle:
+        with open(converted, "wb") as handle:
             handle.write(b"mp3")
+        os.remove(source)
         if report_via_hook:
+            # The real hook reports the pre-conversion path, still in temp.
             options["postprocessor_hooks"][0](
-                {"status": "finished", "postprocessor": "ExtractAudio", "info_dict": {"filepath": path}}
+                {"status": "finished", "postprocessor": "ExtractAudio", "info_dict": {"filepath": source}}
             )
+        shutil.move(converted, path)
+        if report_via_hook:
             return {"requested_downloads": []}
         return {"requested_downloads": [{"filepath": path}], "_filename": path}
 
@@ -62,10 +75,12 @@ def successful_download(filename="Artist - Song.mp3", report_via_hook=True):
 class RunJobTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
+        self.work = tempfile.TemporaryDirectory()
         self.events = []
 
     def tearDown(self):
         self.folder.cleanup()
+        self.work.cleanup()
 
     def run_job(self, yt_dlp_behaviours, url=GOOD_URL, ffmpeg="ffmpeg"):
         loads = []
@@ -81,6 +96,7 @@ class RunJobTests(unittest.TestCase):
             find_ffmpeg=lambda: ffmpeg,
             resolve_dir=lambda: self.folder.name,
             js_options=lambda: {},
+            temp_dir=lambda: self.work.name,
         )
         self.loads = loads
         return self.events
@@ -111,6 +127,25 @@ class RunJobTests(unittest.TestCase):
         self.run_job([successful_download()])
         progress = [(e["stage"], e["pct"]) for e in self.events if e["type"] == "progress"]
         self.assertEqual(len(progress), len(set(progress)))
+
+    def test_only_the_mp3_lands_in_the_output_folder(self):
+        self.run_job([successful_download()])
+        self.assertEqual(os.listdir(self.folder.name), ["Artist - Song.mp3"])
+        self.assertEqual(os.path.dirname(self.last()["path"]), self.folder.name)
+
+    def test_a_leftover_mp3_in_temp_is_not_reported_as_the_download(self):
+        with open(os.path.join(self.work.name, "ghost.mp3"), "wb") as handle:
+            handle.write(b"old")
+
+        def finishes_in_temp_only(options):
+            options["postprocessor_hooks"][0](
+                {"status": "finished", "postprocessor": "ExtractAudio",
+                 "info_dict": {"filepath": os.path.join(self.work.name, "ghost.webm")}}
+            )
+            return {"requested_downloads": []}
+
+        self.run_job([finishes_in_temp_only])
+        self.assertEqual(self.last()["type"], "error")
 
     def test_path_falls_back_to_the_result_when_no_hook_reports_it(self):
         self.run_job([successful_download(report_via_hook=False)])
@@ -155,14 +190,14 @@ class RunJobTests(unittest.TestCase):
 
 class OptionsTests(unittest.TestCase):
     def test_options_ask_for_mp3_and_a_single_track(self):
-        options = build_options("C:\\Music", "ffmpeg.exe", lambda d: None, lambda d: None)
+        options = build_options("C:\\Music", "C:\\Temp", "ffmpeg.exe", lambda d: None, lambda d: None)
         self.assertTrue(options["noplaylist"])
-        self.assertEqual(options["paths"], {"home": "C:\\Music"})
+        self.assertEqual(options["paths"], {"home": "C:\\Music", "temp": "C:\\Temp"})
         self.assertEqual(options["postprocessors"][0]["preferredcodec"], "mp3")
         self.assertEqual(options["ffmpeg_location"], "ffmpeg.exe")
 
     def test_js_options_are_merged(self):
-        options = build_options("x", "y", lambda d: None, lambda d: None, {"js_runtimes": {"node": {}}})
+        options = build_options("x", "t", "y", lambda d: None, lambda d: None, {"js_runtimes": {"node": {}}})
         self.assertEqual(options["js_runtimes"], {"node": {}})
 
 
