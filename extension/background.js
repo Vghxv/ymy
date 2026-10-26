@@ -154,6 +154,8 @@ function setJob(id, job) {
 
 /** Apply one helper message to the stored job. */
 function update(id, msg) {
+  // A late message for a job that was cleared from the list would otherwise come back as a job without an id.
+  if (!jobs.has(id)) return;
   setJob(id, reduce(jobs.get(id), msg));
 }
 
