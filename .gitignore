@@ -4,3 +4,4 @@ __pycache__/
 node_modules/
 host/native/
 *.zip
+.update-staging/

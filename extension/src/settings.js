@@ -1,5 +1,6 @@
 export const OUTPUT_DIR_KEY = "outputDir";
 export const AUTO_CHECK_KEY = "autoCheck";
+export const UPDATE_CHECK_KEY = "updateCheck";
 
 /** Why a typed download folder can't be used, or "" when it is fine (empty means default). */
 export function outputDirError(dir) {
@@ -20,4 +21,10 @@ export async function getOutputDir() {
 export async function getAutoCheck() {
   const stored = await chrome.storage.sync.get(AUTO_CHECK_KEY);
   return stored[AUTO_CHECK_KEY] === true;
+}
+
+/** Whether the extension asks GitHub once a day for a newer release. On unless the user turned it off. */
+export async function getUpdateCheck() {
+  const stored = await chrome.storage.sync.get(UPDATE_CHECK_KEY);
+  return stored[UPDATE_CHECK_KEY] !== false;
 }

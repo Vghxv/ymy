@@ -74,7 +74,22 @@ To check automatically every time the popup opens, turn on **Check for downloade
 
 ## Updating
 
-The downloader (yt-dlp) is kept at a fixed version and never updates itself. When YouTube changes something, downloads fail with **"YouTube changed something"**, and you update it yourself:
+### ymy
+
+Once a day the extension asks GitHub whether a new version of ymy has been released. If there is one:
+
+- a notification pops up with **Update now** and **What's new** buttons, and
+- the popup shows a green bar with an **Update** button until you update.
+
+One click is enough. The helper downloads `ymy-vX.Y.Z.zip` from the release, checks it against the SHA-256 checksum GitHub publishes for it, replaces the project files (your `.venv` and settings are kept), runs `poetry install` for the new versions in `poetry.lock`, and the extension restarts itself. Downloads can't start while this runs, and updating waits until running downloads finish.
+
+- To stop the daily check, turn off **Check GitHub for a new version of ymy once a day** in the options. **Check now** there still works.
+- If you cloned the project with git, the one-click update refuses to overwrite your clone. Run `git pull` and `poetry install --no-root` instead.
+- If the release changes how the helper is registered, its release notes will say to run `install.bat` again.
+
+### yt-dlp by hand
+
+New ymy releases come with a tested yt-dlp version. Between releases, yt-dlp stays at a fixed version and never updates itself. When YouTube changes something, downloads fail with **"YouTube changed something"**, and you can update it yourself:
 
 1. Check the [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) for the latest version number. Waiting a day or two after a release is safer.
 2. Open a terminal in the project folder and run, with that version number:
@@ -95,7 +110,8 @@ Every package is installed at an exact, checksum-verified version listed in `poe
 | The helper doesn't allow this extension | Run `install.bat` again. On the extensions page, the extension ID must be `daebijkbdhdfckkflkjkofmkhpemjanh`. |
 | ffmpeg was not found | Run `install.bat` again, then restart the browser. |
 | Can't create / write to the download folder | Choose another folder in the options, or click **Use default**. |
-| YouTube changed something | Update yt-dlp (see [Updating](#updating)). |
+| YouTube changed something | Update ymy from the popup if it offers one, else update yt-dlp (see [Updating](#updating)). |
+| This copy is a git clone | Run `git pull`, then `poetry install --no-root`. |
 | YouTube is asking for verification / rate-limiting | Wait a while and try again. |
 | This track is age-restricted / needs a paid subscription | These tracks can't be downloaded. |
 | Anything else | Look at the log: `%USERPROFILE%\.ymy\host.log` |
@@ -110,7 +126,7 @@ If `install.bat` reports that the project folder path contains `%`, move or rena
 
 ## Privacy
 
-Everything runs on your computer. The extension only talks to YouTube Music (to download) and to the local helper. Nothing is collected or sent anywhere else. The helper keeps a small log in `%USERPROFILE%\.ymy\host.log`.
+Everything runs on your computer. The extension only talks to YouTube Music (to download), to the local helper, and once a day to GitHub to look for a new ymy release (you can turn that off in the options). When you click **Update**, the helper downloads the release from GitHub. Nothing is collected or sent anywhere else. The helper keeps a small log in `%USERPROFILE%\.ymy\host.log`.
 
 ## Uninstall
 

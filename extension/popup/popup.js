@@ -2,6 +2,7 @@ import { historyText, idleJob, isActive, noTrackJob, shownOnOpen, statusText } f
 import { HOST_NAME, helperErrorMessage } from "../src/native.js";
 import { getAutoCheck, getOutputDir } from "../src/settings.js";
 import { canonicalUrl, cleanTabTitle, trackId } from "../src/track.js";
+import { updateText } from "../src/update.js";
 
 const card = document.getElementById("card");
 const titleEl = document.getElementById("title");
@@ -15,6 +16,9 @@ const historyEl = document.getElementById("history");
 const listEl = document.getElementById("list");
 const clearEl = document.getElementById("clear");
 const itemTemplate = document.getElementById("item");
+const updateEl = document.getElementById("update");
+const updateTextEl = document.getElementById("update-text");
+const updateActionEl = document.getElementById("update-action");
 
 const INDETERMINATE = new Set(["starting"]);
 const ACTION_LABELS = { idle: "Download", error: "Retry", done: "Download again" };
@@ -34,6 +38,7 @@ let shown = null; // last job rendered in the card
 let existingPath = ""; // where this track already sits in the download folder, if anywhere
 let checkState = ""; // "", "checking", "missing" or "failed"
 let openError = ""; // why the last "Open folder" click failed
+let update = null; // a newer ymy release, as the background tracks it
 
 /** The job the card shows: this tab's download, the idle state, or the no-track hint. */
 function cardJob() {
@@ -58,7 +63,8 @@ function render(job) {
     openError || (alreadySaved ? "Already downloaded" : (idle && CHECK_TEXT[checkState]) || statusText(job));
   statusEl.title = alreadySaved ? existingPath : job.path || "";
   const label = alreadySaved ? ACTION_LABELS.done : ACTION_LABELS[job.state];
-  actionEl.hidden = !label || !tabTrack;
+  // The helper's files are being replaced, so no new download can start.
+  actionEl.hidden = !label || !tabTrack || updating();
   if (label) actionEl.textContent = label;
 }
 
@@ -102,7 +108,22 @@ function renderList() {
   clearEl.hidden = !jobs.some((job) => !isActive(job));
 }
 
+function updating() {
+  return update?.state === "updating" || update?.state === "updated";
+}
+
+function renderUpdate() {
+  updateEl.hidden = !update;
+  if (!update) return;
+  updateEl.dataset.state = update.state;
+  updateTextEl.textContent = updateText(update);
+  updateTextEl.title = update.state === "error" ? update.message : "See what's new";
+  updateActionEl.hidden = updating();
+  updateActionEl.textContent = update.state === "error" ? "Retry" : "Update";
+}
+
 function renderAll() {
+  renderUpdate();
   render(cardJob());
   renderList();
 }
@@ -164,6 +185,10 @@ function connect() {
   port = chrome.runtime.connect({ name: "popup" });
   port.onMessage.addListener((msg) => {
     if (msg.type === "jobs") onJobs(msg.jobs);
+    if (msg.type === "update") {
+      update = msg.update;
+      renderAll();
+    }
   });
   // The service worker stops when idle and takes the port with it, even while the popup stays open.
   port.onDisconnect.addListener(() => {
@@ -189,6 +214,14 @@ async function main() {
   // Connect on every tab, so downloads started elsewhere can be followed from here.
   connect();
   clearEl.addEventListener("click", () => send({ cmd: "clear" }));
+  updateActionEl.addEventListener("click", () => {
+    updateActionEl.hidden = true;
+    send({ cmd: "update" });
+  });
+  updateTextEl.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (update?.url) chrome.tabs.create({ url: update.url });
+  });
   // Keep "5 min ago" current while the popup stays open.
   setInterval(renderList, 30_000);
   if (!tabTrack) return;
