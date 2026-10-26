@@ -128,9 +128,18 @@ function jobList() {
   return [...jobs.values()].reverse();
 }
 
+/** A popup can close at any moment, before its onDisconnect has run. */
+function send(port, msg) {
+  try {
+    port.postMessage(msg);
+  } catch {
+    popups.delete(port);
+  }
+}
+
 function broadcast() {
   const list = jobList();
-  for (const port of popups) port.postMessage({ type: "jobs", jobs: list });
+  for (const port of popups) send(port, { type: "jobs", jobs: list });
 }
 
 function setJob(id, job) {
@@ -188,7 +197,7 @@ async function handlePopupCommand(port, msg) {
   switch (msg.cmd) {
     case "open":
       markSeen();
-      port.postMessage({ type: "jobs", jobs: jobList() });
+      send(port, { type: "jobs", jobs: jobList() });
       return;
     case "download": {
       const id = trackId(msg.url);
@@ -212,6 +221,6 @@ async function handlePopupCommand(port, msg) {
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "popup") return;
   popups.add(port);
-  port.onMessage.addListener((msg) => handlePopupCommand(port, msg));
+  port.onMessage.addListener((msg) => handlePopupCommand(port, msg).catch((error) => console.error(error)));
   port.onDisconnect.addListener(() => popups.delete(port));
 });
