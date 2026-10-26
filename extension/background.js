@@ -35,10 +35,13 @@ function tabTitle(downloadable) {
   return `Downloading ${tracks}. Click to see progress.\n${base}`;
 }
 
+// The tab may be closed, discarded or prerendered by the time these run, which rejects with "No tab with id".
+function ignore() {}
+
 function refreshTab(tabId, url) {
   const downloadable = !!trackId(url);
-  chrome.action.setIcon({ tabId, path: iconSet(downloadable ? "on" : "off") });
-  chrome.action.setTitle({ tabId, title: tabTitle(downloadable) });
+  chrome.action.setIcon({ tabId, path: iconSet(downloadable ? "on" : "off") }).catch(ignore);
+  chrome.action.setTitle({ tabId, title: tabTitle(downloadable) }).catch(ignore);
 }
 
 function refreshAllTabs() {
