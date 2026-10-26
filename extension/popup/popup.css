@@ -88,6 +88,10 @@ body {
   cursor: pointer;
 }
 
+.icon-button[hidden] {
+  display: none;
+}
+
 .icon-button:hover {
   border-color: var(--track);
   color: var(--fg);
@@ -188,6 +192,118 @@ body {
   );
   background-size: 28px 28px;
   animation: slide 0.8s linear infinite;
+}
+
+[data-state="none"] .bar {
+  display: none;
+}
+
+[data-state="none"] .row {
+  margin-top: 6px;
+}
+
+/* ---------- download list ---------- */
+
+.history {
+  border-top: 1px solid var(--track);
+  padding: 8px 0 6px;
+}
+
+.history[hidden] {
+  display: none;
+}
+
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.item {
+  padding: 6px 16px;
+}
+
+.item:hover {
+  background: color-mix(in srgb, var(--track) 45%, var(--bg));
+}
+
+.item-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.item-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-title:hover {
+  text-decoration: underline;
+}
+
+.item .bar {
+  height: 4px;
+  margin: 4px 0 3px;
+  border-radius: 2px;
+}
+
+.item:not([data-state="starting"]):not([data-state="downloading"]):not([data-state="converting"]) .bar {
+  display: none;
+}
+
+.item-status {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item[data-state="error"] .item-status {
+  color: var(--error);
+}
+
+.item[data-state="done"] .item-status::before {
+  content: "\2713\00a0";
+  color: var(--done);
+  font-weight: 700;
 }
 
 @keyframes slide {

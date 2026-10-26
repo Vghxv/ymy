@@ -5,6 +5,7 @@
 A browser extension that saves YouTube Music tracks as MP3 files. Open a track, click the toolbar icon, click **Download**.
 
 - One click per track, with a progress bar in the popup and on the icon badge
+- A list of recent downloads, so you can follow them from any tab
 - Saves `Artist - Title.mp3` (192 kbps) with title, artist and album tags
 - Downloads keep going when you close the popup
 - Optional check for whether you already have the track
@@ -37,9 +38,17 @@ Each key points to `host\native\com.ymy.downloader.json`, which the installer wr
 
 1. Open a track on [music.youtube.com](https://music.youtube.com). The icon turns **red** (it is gray on pages with nothing to download, such as the home page or a playlist).
 2. Click the icon, then **Download**.
-3. Watch the progress in the popup, or close it: the badge shows the progress, then `OK` or `ERR`.
+3. Watch the progress in the popup, or close it and carry on: play another track, switch tabs, start more downloads.
 
-If a download fails, the popup says why and shows a **Retry** button.
+The icon can always be clicked, even when it's gray. The popup shows the track in the current tab at the top and, under it, **Recent downloads**: running downloads with their progress, finished ones (the folder button shows the MP3 in Explorer) and failed ones with a **Retry** button. Click a title to open the track again. **Clear** empties the list; running downloads stay.
+
+| Icon | Meaning |
+| --- | --- |
+| Red | This tab is a track you can download |
+| Gray | Nothing to download on this tab (the popup still shows your downloads) |
+| Red badge `45%` | Downloads are running (overall progress); hover the icon to see how many |
+| Green badge `OK` | Everything finished, shown for a few seconds |
+| Gray badge `ERR` | A download failed; stays until you open the popup |
 
 ### Download folder
 

@@ -18,7 +18,7 @@ export function idleJob(title = "") {
 
 /** What the popup shows on a tab that isn't a track page. */
 export function noTrackJob() {
-  return { state: "error", title: "", pct: 0, message: "Open a track on YouTube Music first." };
+  return { state: "none", title: "No track on this tab", pct: 0, message: "Open a track on YouTube Music to download it." };
 }
 
 export function interruptedJob(job, now = Date.now()) {
@@ -67,7 +67,35 @@ export function statusText(job) {
       return "Done";
     case "error":
       return job.message || "Download failed.";
+    case "none":
+      return job.message;
     default:
       return "";
   }
+}
+
+/** "just now", "5 min ago", "2 hours ago", "3 days ago" */
+export function timeAgo(then, now = Date.now()) {
+  const minutes = Math.floor(Math.max(0, now - then) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+/** The status line of a job in the popup's download list. */
+export function historyText(job, now = Date.now()) {
+  if (job.state === "done") return `Saved · ${timeAgo(job.at, now)}`;
+  if (job.state === "error") return `${timeAgo(job.at, now)} · ${statusText(job)}`;
+  return statusText(job);
+}
+
+/** All running jobs together, for the toolbar badge, or null when nothing is running. */
+export function activeSummary(jobs) {
+  const active = jobs.filter(isActive);
+  if (!active.length) return null;
+  const pct = Math.round(active.reduce((sum, job) => sum + (job.pct || 0), 0) / active.length);
+  return { count: active.length, pct, starting: active.every((job) => job.state === "starting") };
 }

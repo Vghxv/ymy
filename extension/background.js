@@ -1,17 +1,22 @@
 import { HOST_NAME, helperErrorMessage } from "./src/native.js";
 import { getOutputDir } from "./src/settings.js";
 import { canonicalUrl, trackId } from "./src/track.js";
-import { idleJob, interruptedJob, isActive, newJob, noTrackJob, reduce, shownOnOpen } from "./src/jobs.js";
+import { activeSummary, interruptedJob, isActive, newJob, reduce } from "./src/jobs.js";
 
 const MAX_STORED_JOBS = 20;
+const DONE_BADGE_MS = 4000;
 
-const jobs = new Map(); // track id -> job
+const jobs = new Map(); // track id -> job, oldest first
 const helpers = new Map(); // track id -> native port
-const popups = new Set(); // { port, id }
+const popups = new Set(); // popup ports
 
 let badgeTimer = null;
+let doneFlash = false; // "OK" shown for a moment after the last download finished
+let unseenError = false; // a download failed and no popup has been opened since
 
 // ---------- icon state ----------
+// The icon's color says whether this tab can be downloaded (red) or not (gray).
+// It is never disabled, so the popup and its download list open from any tab.
 
 function iconSet(name) {
   return {
@@ -22,19 +27,21 @@ function iconSet(name) {
   };
 }
 
+function tabTitle(downloadable) {
+  const summary = activeSummary([...jobs.values()]);
+  const base = downloadable ? "Download this track as MP3" : "Open a track on YouTube Music to download";
+  if (!summary) return base;
+  const tracks = summary.count === 1 ? "1 track" : `${summary.count} tracks`;
+  return `Downloading ${tracks}. Click to see progress.\n${base}`;
+}
+
 function refreshTab(tabId, url) {
   const downloadable = !!trackId(url);
   chrome.action.setIcon({ tabId, path: iconSet(downloadable ? "on" : "off") });
-  chrome.action.setTitle({
-    tabId,
-    title: downloadable ? "Download this track as MP3" : "Open a track on YouTube Music to download",
-  });
-  if (downloadable) chrome.action.enable(tabId);
-  else chrome.action.disable(tabId);
+  chrome.action.setTitle({ tabId, title: tabTitle(downloadable) });
 }
 
 function refreshAllTabs() {
-  chrome.action.disable();
   chrome.tabs.query({}, (tabs) => tabs.forEach((tab) => refreshTab(tab.id, tab.url)));
 }
 
@@ -47,30 +54,57 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
 });
 
 // ---------- badge ----------
+// Running: overall progress in red. Just finished: green "OK" for a moment.
+// Failed: gray "ERR" until the popup is opened, so a failure isn't missed.
 
-function showBadge(job) {
-  clearTimeout(badgeTimer);
-  if (isActive(job)) {
-    const text = job.state === "downloading" ? `${job.pct}%` : "...";
-    chrome.action.setBadgeText({ text });
-    chrome.action.setBadgeBackgroundColor({ color: "#d62828" });
-    return;
-  }
-  const done = job.state === "done";
-  chrome.action.setBadgeText({ text: done ? "OK" : "ERR" });
-  chrome.action.setBadgeBackgroundColor({ color: done ? "#2a9d3f" : "#6b6b6b" });
-  badgeTimer = setTimeout(() => chrome.action.setBadgeText({ text: "" }), 4000);
+function setBadge(text, color) {
+  chrome.action.setBadgeText({ text });
+  if (color) chrome.action.setBadgeBackgroundColor({ color });
 }
 
-// ---------- job state (kept in session storage so it survives worker restarts) ----------
+function refreshBadge() {
+  const summary = activeSummary([...jobs.values()]);
+  if (summary) setBadge(summary.starting ? "..." : `${summary.pct}%`, "#d62828");
+  else if (unseenError) setBadge("ERR", "#6b6b6b");
+  else if (doneFlash) setBadge("OK", "#2a9d3f");
+  else setBadge("");
+}
+
+/** Called when a job stops running. */
+function jobFinished(job) {
+  if (job.state === "error") {
+    unseenError = true;
+    chrome.storage.session.set({ unseenError });
+  } else {
+    clearTimeout(badgeTimer);
+    doneFlash = true;
+    badgeTimer = setTimeout(() => {
+      doneFlash = false;
+      refreshBadge();
+    }, DONE_BADGE_MS);
+  }
+}
+
+function markSeen() {
+  if (!unseenError) return;
+  unseenError = false;
+  chrome.storage.session.set({ unseenError });
+  refreshBadge();
+}
+
+// ---------- job state (kept in local storage: it is the download history) ----------
 
 const ready = restoreJobs();
 
 async function restoreJobs() {
-  const { jobs: saved = {} } = await chrome.storage.session.get("jobs");
+  const [{ jobs: saved = {} }, session] = await Promise.all([
+    chrome.storage.local.get("jobs"),
+    chrome.storage.session.get("unseenError"),
+  ]);
   for (const [id, job] of Object.entries(saved)) {
     jobs.set(id, isActive(job) ? interruptedJob(job) : job);
   }
+  unseenError = session.unseenError === true;
 }
 
 function persistJobs() {
@@ -79,20 +113,27 @@ function persistJobs() {
     if (!oldest) break;
     jobs.delete(oldest[0]);
   }
-  chrome.storage.session.set({ jobs: Object.fromEntries(jobs) });
+  chrome.storage.local.set({ jobs: Object.fromEntries(jobs) });
 }
 
-function sendJob(popup, job) {
-  popup.port.postMessage({ type: "job", job });
+/** Newest first, as the popup lists them. */
+function jobList() {
+  return [...jobs.values()].reverse();
+}
+
+function broadcast() {
+  const list = jobList();
+  for (const port of popups) port.postMessage({ type: "jobs", jobs: list });
 }
 
 function setJob(id, job) {
+  const wasActive = isActive(jobs.get(id));
   jobs.set(id, job);
   persistJobs();
-  showBadge(job);
-  for (const popup of popups) {
-    if (popup.id === id) sendJob(popup, job);
-  }
+  if (wasActive && !isActive(job)) jobFinished(job);
+  if (wasActive !== isActive(job)) refreshAllTabs();
+  refreshBadge();
+  broadcast();
 }
 
 /** Apply one helper message to the stored job. */
@@ -108,6 +149,7 @@ function fail(id, reason) {
 
 async function startDownload(id, titleHint) {
   helpers.get(id)?.disconnect();
+  jobs.delete(id); // a new attempt moves to the top of the list
   setJob(id, newJob(id, titleHint));
   const outputDir = await getOutputDir();
 
@@ -134,29 +176,35 @@ async function startDownload(id, titleHint) {
 
 // ---------- popup ----------
 
-async function handlePopupCommand(popup, msg) {
+async function handlePopupCommand(port, msg) {
   await ready;
-  const id = trackId(msg.url);
-  if (!id) {
-    sendJob(popup, noTrackJob());
-    return;
+  switch (msg.cmd) {
+    case "open":
+      markSeen();
+      port.postMessage({ type: "jobs", jobs: jobList() });
+      return;
+    case "download": {
+      const id = trackId(msg.url);
+      if (!id) return;
+      const existing = jobs.get(id);
+      if (isActive(existing)) broadcast();
+      else startDownload(id, msg.title || existing?.title || "");
+      return;
+    }
+    case "clear":
+      for (const [id, job] of jobs) {
+        if (!isActive(job)) jobs.delete(id);
+      }
+      persistJobs();
+      markSeen();
+      broadcast();
+      return;
   }
-  popup.id = id;
-
-  const existing = jobs.get(id);
-  if (msg.cmd === "download") {
-    if (isActive(existing)) sendJob(popup, existing);
-    else startDownload(id, msg.title || existing?.title || "");
-    return;
-  }
-  // "open": show what's going on for this track, or the idle state with a Download button.
-  sendJob(popup, shownOnOpen(existing) ? existing : idleJob(msg.title));
 }
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "popup") return;
-  const popup = { port, id: null };
-  popups.add(popup);
-  port.onMessage.addListener((msg) => handlePopupCommand(popup, msg));
-  port.onDisconnect.addListener(() => popups.delete(popup));
+  popups.add(port);
+  port.onMessage.addListener((msg) => handlePopupCommand(port, msg));
+  port.onDisconnect.addListener(() => popups.delete(port));
 });
