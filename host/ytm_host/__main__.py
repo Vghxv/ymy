@@ -8,11 +8,17 @@ from . import logsetup, system
 from .downloader import run_job
 from .library import run_check
 from .protocol import ProtocolError, read_message, write_message
+from .updater import run_update
 
 log = logging.getLogger("ytm_host")
 
 # request type -> (handler, the request field passed as its first argument)
-HANDLERS = {"check": (run_check, "url"), "download": (run_job, "url"), "open": (system.run_open, "path")}
+HANDLERS = {
+    "check": (run_check, "url"),
+    "download": (run_job, "url"),
+    "open": (system.run_open, "path"),
+    "update": (run_update, "tag"),
+}
 
 
 def _binary_stdio():

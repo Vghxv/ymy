@@ -25,7 +25,13 @@ Files are saved as `Artist - Title.mp3` (192 kbps, tagged) in your Music folder.
 
 **Check folder** tells you if you already have the track. You can make it run automatically in Options, but avoid it on network drives or huge folders.
 
-## Updating yt-dlp
+## Updating
+
+Once a day the extension checks GitHub for a new release. When there is one, a notification and the popup show an **Update** button: one click downloads the release, replaces the files, installs its dependencies and restarts the extension. Turn the check off in Options.
+
+Cloned with git? Use `git pull` instead.
+
+## Updating yt-dlp by hand
 
 If downloads fail with "YouTube changed something", update yt-dlp:
 

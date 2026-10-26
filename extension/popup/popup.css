@@ -202,6 +202,58 @@ body {
   margin-top: 6px;
 }
 
+/* ---------- update banner ---------- */
+
+.update {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--track);
+  background: color-mix(in srgb, var(--done) 12%, var(--bg));
+}
+
+.update[hidden] {
+  display: none;
+}
+
+.update-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg);
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.update-text:hover {
+  text-decoration: underline;
+}
+
+.update[data-state="error"] .update-text {
+  color: var(--error);
+  font-weight: normal;
+  white-space: normal;
+}
+
+.update-action {
+  border-color: var(--done);
+  background: var(--done);
+  color: #fff;
+  font-weight: 600;
+}
+
+.update-action:hover {
+  border-color: var(--done);
+  background: color-mix(in srgb, var(--done) 85%, #000);
+}
+
+.update-action[hidden] {
+  display: none;
+}
+
 /* ---------- download list ---------- */
 
 .history {
