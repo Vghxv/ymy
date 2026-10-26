@@ -25,6 +25,26 @@
       <button id="action" class="action" type="button" hidden>Download</button>
     </div>
   </main>
+  <section id="history" class="history" hidden>
+    <div class="history-head">
+      <span>Recent downloads</span>
+      <button id="clear" class="link" type="button" title="Remove finished and failed downloads from this list">Clear</button>
+    </div>
+    <ul id="list" class="list"></ul>
+  </section>
+  <template id="item">
+    <li class="item">
+      <div class="item-head">
+        <a class="item-title" href="#"></a>
+        <button class="icon-button item-folder" type="button" title="Show in folder" aria-label="Show in folder" hidden>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 4.5v8h13v-6.5h-6.5l-1.5-1.5z"/></svg>
+        </button>
+        <button class="action item-retry" type="button" hidden>Retry</button>
+      </div>
+      <div class="bar"><div class="fill"></div></div>
+      <div class="item-status"></div>
+    </li>
+  </template>
   <script type="module" src="popup.js"></script>
 </body>
 </html>
