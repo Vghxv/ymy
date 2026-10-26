@@ -52,8 +52,12 @@ chrome.runtime.onInstalled.addListener(refreshAllTabs);
 chrome.runtime.onStartup.addListener(refreshAllTabs);
 chrome.tabs.onUpdated.addListener((tabId, _change, tab) => refreshTab(tabId, tab.url));
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
-  const tab = await chrome.tabs.get(tabId);
-  refreshTab(tabId, tab.url);
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    refreshTab(tabId, tab.url);
+  } catch {
+    // Closed already, or Chrome's "Tabs cannot be edited right now" while a tab is dragged.
+  }
 });
 
 // ---------- badge ----------
