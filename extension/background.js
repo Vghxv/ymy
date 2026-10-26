@@ -167,10 +167,11 @@ async function startDownload(id, titleHint) {
   helpers.get(id)?.disconnect();
   jobs.delete(id); // a new attempt moves to the top of the list
   setJob(id, newJob(id, titleHint));
-  const outputDir = await getOutputDir();
 
+  let outputDir;
   let port;
   try {
+    outputDir = await getOutputDir();
     port = chrome.runtime.connectNative(HOST_NAME);
   } catch (error) {
     fail(id, error.message);
