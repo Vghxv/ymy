@@ -19,7 +19,13 @@ async function save(value) {
     show(error, "error");
     return;
   }
-  await chrome.storage.sync.set({ [OUTPUT_DIR_KEY]: dir });
+  try {
+    await chrome.storage.sync.set({ [OUTPUT_DIR_KEY]: dir });
+  } catch (error) {
+    // Sync storage has write quotas (about 120 a minute).
+    show(`Couldn't save: ${error.message}`, "error");
+    return;
+  }
   dirEl.value = dir;
   show(dir ? "Saved." : "Saved. Using the default folder.", "ok");
 }
@@ -33,7 +39,13 @@ resetEl.addEventListener("click", () => save(""));
 dirEl.addEventListener("input", () => show(""));
 
 autoCheckEl.addEventListener("change", async () => {
-  await chrome.storage.sync.set({ [AUTO_CHECK_KEY]: autoCheckEl.checked });
+  try {
+    await chrome.storage.sync.set({ [AUTO_CHECK_KEY]: autoCheckEl.checked });
+  } catch (error) {
+    autoCheckEl.checked = !autoCheckEl.checked;
+    show(`Couldn't save: ${error.message}`, "error", checkStatusEl);
+    return;
+  }
   show(autoCheckEl.checked ? "Saved. The popup checks by itself." : "Saved. Checks only run when you click.", "ok", checkStatusEl);
 });
 

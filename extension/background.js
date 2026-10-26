@@ -35,10 +35,13 @@ function tabTitle(downloadable) {
   return `Downloading ${tracks}. Click to see progress.\n${base}`;
 }
 
+// The tab may be closed, discarded or prerendered by the time these run, which rejects with "No tab with id".
+function ignore() {}
+
 function refreshTab(tabId, url) {
   const downloadable = !!trackId(url);
-  chrome.action.setIcon({ tabId, path: iconSet(downloadable ? "on" : "off") });
-  chrome.action.setTitle({ tabId, title: tabTitle(downloadable) });
+  chrome.action.setIcon({ tabId, path: iconSet(downloadable ? "on" : "off") }).catch(ignore);
+  chrome.action.setTitle({ tabId, title: tabTitle(downloadable) }).catch(ignore);
 }
 
 function refreshAllTabs() {
@@ -49,8 +52,12 @@ chrome.runtime.onInstalled.addListener(refreshAllTabs);
 chrome.runtime.onStartup.addListener(refreshAllTabs);
 chrome.tabs.onUpdated.addListener((tabId, _change, tab) => refreshTab(tabId, tab.url));
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
-  const tab = await chrome.tabs.get(tabId);
-  refreshTab(tabId, tab.url);
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    refreshTab(tabId, tab.url);
+  } catch {
+    // Closed already, or Chrome's "Tabs cannot be edited right now" while a tab is dragged.
+  }
 });
 
 // ---------- badge ----------
@@ -121,9 +128,18 @@ function jobList() {
   return [...jobs.values()].reverse();
 }
 
+/** A popup can close at any moment, before its onDisconnect has run. */
+function send(port, msg) {
+  try {
+    port.postMessage(msg);
+  } catch {
+    popups.delete(port);
+  }
+}
+
 function broadcast() {
   const list = jobList();
-  for (const port of popups) port.postMessage({ type: "jobs", jobs: list });
+  for (const port of popups) send(port, { type: "jobs", jobs: list });
 }
 
 function setJob(id, job) {
@@ -138,6 +154,8 @@ function setJob(id, job) {
 
 /** Apply one helper message to the stored job. */
 function update(id, msg) {
+  // A late message for a job that was cleared from the list would otherwise come back as a job without an id.
+  if (!jobs.has(id)) return;
   setJob(id, reduce(jobs.get(id), msg));
 }
 
@@ -151,10 +169,11 @@ async function startDownload(id, titleHint) {
   helpers.get(id)?.disconnect();
   jobs.delete(id); // a new attempt moves to the top of the list
   setJob(id, newJob(id, titleHint));
-  const outputDir = await getOutputDir();
 
+  let outputDir;
   let port;
   try {
+    outputDir = await getOutputDir();
     port = chrome.runtime.connectNative(HOST_NAME);
   } catch (error) {
     fail(id, error.message);
@@ -181,7 +200,7 @@ async function handlePopupCommand(port, msg) {
   switch (msg.cmd) {
     case "open":
       markSeen();
-      port.postMessage({ type: "jobs", jobs: jobList() });
+      send(port, { type: "jobs", jobs: jobList() });
       return;
     case "download": {
       const id = trackId(msg.url);
@@ -205,6 +224,6 @@ async function handlePopupCommand(port, msg) {
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "popup") return;
   popups.add(port);
-  port.onMessage.addListener((msg) => handlePopupCommand(port, msg));
+  port.onMessage.addListener((msg) => handlePopupCommand(port, msg).catch((error) => console.error(error)));
   port.onDisconnect.addListener(() => popups.delete(port));
 });

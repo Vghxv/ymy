@@ -88,7 +88,7 @@ function renderItem(job, now) {
   retry.hidden = job.state !== "error";
   retry.addEventListener("click", () => {
     retry.hidden = true;
-    port.postMessage({ cmd: "download", url: canonicalUrl(job.id), title: job.title });
+    send({ cmd: "download", url: canonicalUrl(job.id), title: job.title });
   });
   return item;
 }
@@ -160,6 +160,25 @@ async function checkSaved(id) {
   if (shown) render(shown);
 }
 
+function connect() {
+  port = chrome.runtime.connect({ name: "popup" });
+  port.onMessage.addListener((msg) => {
+    if (msg.type === "jobs") onJobs(msg.jobs);
+  });
+  // The service worker stops when idle and takes the port with it, even while the popup stays open.
+  port.onDisconnect.addListener(() => {
+    void chrome.runtime.lastError;
+    port = null;
+  });
+  port.postMessage({ cmd: "open" });
+}
+
+/** Send a command to the background, reconnecting (and waking it) if it went away. */
+function send(msg) {
+  if (!port) connect();
+  port.postMessage(msg);
+}
+
 async function main() {
   openEl.addEventListener("click", () => openFolder());
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -168,12 +187,8 @@ async function main() {
   renderAll();
 
   // Connect on every tab, so downloads started elsewhere can be followed from here.
-  port = chrome.runtime.connect({ name: "popup" });
-  port.onMessage.addListener((msg) => {
-    if (msg.type === "jobs") onJobs(msg.jobs);
-  });
-  port.postMessage({ cmd: "open" });
-  clearEl.addEventListener("click", () => port.postMessage({ cmd: "clear" }));
+  connect();
+  clearEl.addEventListener("click", () => send({ cmd: "clear" }));
   // Keep "5 min ago" current while the popup stays open.
   setInterval(renderList, 30_000);
   if (!tabTrack) return;
@@ -182,7 +197,7 @@ async function main() {
     openError = "";
     actionEl.hidden = true;
     follow = true;
-    port.postMessage({ cmd: "download", url: tabTrack.url, title: tabTrack.title });
+    send({ cmd: "download", url: tabTrack.url, title: tabTrack.title });
   });
   checkEl.addEventListener("click", () => checkSaved(id));
   // Searching the folder can be slow and touches network shares, so it's opt-in (see the options page).
