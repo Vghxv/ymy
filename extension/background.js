@@ -1,7 +1,8 @@
 import { HOST_NAME, helperErrorMessage } from "./src/native.js";
 import { getOutputDir, getUpdateCheck } from "./src/settings.js";
-import { canonicalUrl, trackId } from "./src/track.js";
+import { canonicalUrl, playlistId, playlistUrl, trackId } from "./src/track.js";
 import { activeSummary, interruptedJob, isActive, newJob, reduce } from "./src/jobs.js";
+import { isRunning, listed, newPlaylist, randomWaitMs, restored, resumed, startNext, stopped, trackFinished } from "./src/playlist.js";
 import { RELEASES_API, availableUpdate, isNewer, reduceUpdate } from "./src/update.js";
 
 const MAX_STORED_JOBS = 20;
@@ -10,6 +11,7 @@ const UPDATE_ALARM = "update-check";
 const UPDATE_CHECK_MINUTES = 24 * 60;
 const UPDATE_NOTIFICATION = "update";
 const RELOAD_DELAY_MS = 1500; // long enough for an open popup to show "Updated"
+const PLAYLIST_ALARM = "playlist-next";
 
 const jobs = new Map(); // track id -> job, oldest first
 const helpers = new Map(); // track id -> native port
@@ -19,6 +21,7 @@ let badgeTimer = null;
 let doneFlash = false; // "OK" shown for a moment after the last download finished
 let unseenError = false; // a download failed and no popup has been opened since
 let selfUpdate = null; // { tag, version, url, state, step, message } while a newer release is known
+let playlist = null; // the playlist being downloaded or just finished, one at a time (see src/playlist.js)
 
 // ---------- icon state ----------
 // The icon's color says whether this tab can be downloaded (red) or not (gray).
@@ -33,9 +36,15 @@ function iconSet(name) {
   };
 }
 
-function tabTitle(downloadable) {
+function baseTitle(url) {
+  if (trackId(url)) return "Download this track as MP3";
+  if (playlistId(url)) return "Download this playlist as MP3s";
+  return "Open a track on YouTube Music to download";
+}
+
+function tabTitle(url) {
   const summary = activeSummary([...jobs.values()]);
-  const base = downloadable ? "Download this track as MP3" : "Open a track on YouTube Music to download";
+  const base = baseTitle(url);
   if (!summary) return base;
   const tracks = summary.count === 1 ? "1 track" : `${summary.count} tracks`;
   return `Downloading ${tracks}. Click to see progress.\n${base}`;
@@ -45,9 +54,9 @@ function tabTitle(downloadable) {
 function ignore() {}
 
 function refreshTab(tabId, url) {
-  const downloadable = !!trackId(url);
+  const downloadable = !!trackId(url) || !!playlistId(url);
   chrome.action.setIcon({ tabId, path: iconSet(downloadable ? "on" : "off") }).catch(ignore);
-  chrome.action.setTitle({ tabId, title: tabTitle(downloadable) }).catch(ignore);
+  chrome.action.setTitle({ tabId, title: tabTitle(url) }).catch(ignore);
 }
 
 function refreshAllTabs() {
@@ -69,6 +78,7 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
 // ---------- badge ----------
 // Running: overall progress in red. Just finished: green "OK" for a moment.
 // Failed: gray "ERR" until the popup is opened, so a failure isn't missed.
+// Waiting for a playlist's next track: red "...".
 
 function setBadge(text, color) {
   chrome.action.setBadgeText({ text });
@@ -79,6 +89,7 @@ function refreshBadge() {
   const summary = activeSummary([...jobs.values()]);
   if (summary) setBadge(summary.starting ? "..." : `${summary.pct}%`, "#d62828");
   else if (unseenError) setBadge("ERR", "#6b6b6b");
+  else if (isRunning(playlist)) setBadge("...", "#d62828");
   else if (doneFlash) setBadge("OK", "#2a9d3f");
   else setBadge("");
 }
@@ -110,8 +121,8 @@ function markSeen() {
 const ready = restoreJobs();
 
 async function restoreJobs() {
-  const [{ jobs: saved = {}, update: savedUpdate = null }, session] = await Promise.all([
-    chrome.storage.local.get(["jobs", "update"]),
+  const [{ jobs: saved = {}, update: savedUpdate = null, playlist: savedPlaylist = null }, session] = await Promise.all([
+    chrome.storage.local.get(["jobs", "update", "playlist"]),
     chrome.storage.session.get("unseenError"),
   ]);
   for (const [id, job] of Object.entries(saved)) {
@@ -124,6 +135,15 @@ async function restoreJobs() {
   } else if (savedUpdate) {
     chrome.storage.local.remove("update");
   }
+  if (savedPlaylist) await restorePlaylist(savedPlaylist);
+}
+
+async function restorePlaylist(saved) {
+  playlist = restored(saved, randomWaitMs());
+  if (playlist !== saved) chrome.storage.local.set({ playlist });
+  // Alarms usually survive a browser restart, but that isn't guaranteed.
+  if (playlist.state === "waiting" && !(await chrome.alarms.get(PLAYLIST_ALARM))) schedulePlaylist();
+  refreshBadge();
 }
 
 function persistJobs() {
@@ -162,7 +182,10 @@ function setJob(id, job) {
   const wasActive = isActive(jobs.get(id));
   jobs.set(id, job);
   persistJobs();
-  if (wasActive && !isActive(job)) jobFinished(job);
+  if (wasActive && !isActive(job)) {
+    jobFinished(job);
+    if (playlist?.currentId === id) playlistTrackFinished(job);
+  }
   if (wasActive !== isActive(job)) refreshAllTabs();
   refreshBadge();
   broadcast();
@@ -176,7 +199,7 @@ function update(id, msg) {
 }
 
 function fail(id, reason) {
-  update(id, { type: "error", message: helperErrorMessage(reason) });
+  update(id, { type: "error", code: "helper", message: helperErrorMessage(reason) });
 }
 
 // ---------- talking to the helper ----------
@@ -207,6 +230,93 @@ async function startDownload(id, titleHint) {
   });
 
   port.postMessage({ type: "download", url: canonicalUrl(id), output_dir: outputDir });
+}
+
+// ---------- playlists ----------
+// The helper lists the tracks; each one then downloads like a single track, with a random
+// wait in between. The service worker stops during a wait, so the state is kept in local
+// storage and an alarm wakes it for the next track. A browser restart picks up where it left off.
+
+function setPlaylist(next) {
+  playlist = next;
+  if (playlist) chrome.storage.local.set({ playlist });
+  else chrome.storage.local.remove("playlist");
+  refreshBadge();
+  for (const port of popups) send(port, { type: "playlist", playlist });
+}
+
+function schedulePlaylist() {
+  chrome.alarms.create(PLAYLIST_ALARM, { when: playlist.wakeAt });
+}
+
+function waitForNextTrack(next) {
+  setPlaylist(next);
+  if (playlist.state === "waiting") schedulePlaylist();
+}
+
+async function startPlaylist(id, titleHint) {
+  setPlaylist(newPlaylist(id, titleHint));
+  const stillLoading = () => playlist?.state === "loading" && playlist.id === id;
+
+  let port;
+  try {
+    port = chrome.runtime.connectNative(HOST_NAME);
+  } catch (error) {
+    setPlaylist(listed(playlist, { type: "error", message: helperErrorMessage(error.message) }));
+    return;
+  }
+  port.onMessage.addListener((msg) => {
+    if (!stillLoading()) return;
+    setPlaylist(listed(playlist, msg));
+    if (msg.type === "playlist") downloadNextTrack();
+  });
+  port.onDisconnect.addListener(() => {
+    const reason = chrome.runtime.lastError?.message;
+    if (stillLoading()) setPlaylist(listed(playlist, { type: "error", message: helperErrorMessage(reason) }));
+  });
+  port.postMessage({ type: "playlist", url: playlistUrl(id) });
+}
+
+function downloadNextTrack() {
+  const { id, title } = playlist.tracks[playlist.next];
+  setPlaylist(startNext(playlist));
+  // Started by hand in the meantime: that download counts as this track's.
+  const existing = jobs.get(id);
+  if (!isActive(existing)) startDownload(id, title || existing?.title || "");
+}
+
+function playlistTrackFinished(job) {
+  waitForNextTrack(trackFinished(playlist, job, randomWaitMs()));
+}
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== PLAYLIST_ALARM) return;
+  await ready;
+  if (playlist?.state === "waiting") downloadNextTrack();
+});
+
+function handlePlaylistCommand(msg) {
+  switch (msg.cmd) {
+    case "playlist": {
+      const id = playlistId(msg.url);
+      if (!id || playlist || selfUpdate?.state === "updating") return;
+      startPlaylist(id, msg.title || "");
+      return;
+    }
+    case "playlistStop":
+      if (!isRunning(playlist)) return;
+      chrome.alarms.clear(PLAYLIST_ALARM);
+      // Nothing to come back to when it is still being listed.
+      setPlaylist(playlist.state === "loading" ? null : stopped(playlist));
+      return;
+    case "playlistResume":
+      if (playlist?.state !== "stopped" || selfUpdate?.state === "updating") return;
+      waitForNextTrack(resumed(playlist, randomWaitMs()));
+      return;
+    case "playlistDismiss":
+      if (!isRunning(playlist)) setPlaylist(null);
+      return;
+  }
 }
 
 // ---------- updates ----------
@@ -248,7 +358,7 @@ async function startUpdate() {
   await ready;
   if (!selfUpdate || selfUpdate.state === "updating" || selfUpdate.state === "updated") return;
   // The helper replaces its own files and yt-dlp's, which a running download is using.
-  if ([...jobs.values()].some(isActive)) {
+  if ([...jobs.values()].some(isActive) || isRunning(playlist)) {
     setUpdate({ ...selfUpdate, state: "error", message: "Wait for the downloads to finish, then update." });
     return;
   }
@@ -319,6 +429,14 @@ async function handlePopupCommand(port, msg) {
       markSeen();
       send(port, { type: "jobs", jobs: jobList() });
       send(port, { type: "update", update: selfUpdate });
+      send(port, { type: "playlist", playlist });
+      return;
+    case "playlist":
+    case "playlistStop":
+    case "playlistResume":
+    case "playlistDismiss":
+      handlePlaylistCommand(msg);
+      send(port, { type: "playlist", playlist }); // also for a command that changed nothing
       return;
     case "download": {
       const id = trackId(msg.url);

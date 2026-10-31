@@ -40,9 +40,10 @@ test("a job moves from starting through downloading and converting to done", () 
   assert.ok(!isActive(job));
 });
 
-test("errors keep the helper's message, with a fallback", () => {
+test("errors keep the helper's message and code, with a fallback", () => {
   const job = newJob("abc");
   assert.equal(reduce(job, { type: "error", message: "Nope" }).message, "Nope");
+  assert.equal(reduce(job, { type: "error", code: "disk" }).code, "disk");
   assert.equal(statusText(reduce(job, { type: "error" })), "Download failed.");
 });
 

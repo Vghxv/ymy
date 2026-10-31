@@ -254,6 +254,46 @@ body {
   display: none;
 }
 
+/* ---------- playlist ---------- */
+
+.playlist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--track);
+}
+
+.playlist[hidden] {
+  display: none;
+}
+
+.playlist-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.playlist[data-state="error"] .playlist-status,
+.playlist[data-state="stopped"] .playlist-status {
+  color: var(--error);
+}
+
+.playlist[data-state="done"] .playlist-status {
+  color: var(--done);
+}
+
 /* ---------- download list ---------- */
 
 .history {

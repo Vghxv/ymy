@@ -1,7 +1,8 @@
 import { historyText, idleJob, isActive, noTrackJob, shownOnOpen, statusText } from "../src/jobs.js";
 import { HOST_NAME, helperErrorMessage } from "../src/native.js";
 import { getAutoCheck, getOutputDir } from "../src/settings.js";
-import { canonicalUrl, cleanTabTitle, trackId } from "../src/track.js";
+import { isRunning, playlistText } from "../src/playlist.js";
+import { canonicalUrl, cleanTabTitle, playlistId, trackId } from "../src/track.js";
 import { updateText } from "../src/update.js";
 
 const card = document.getElementById("card");
@@ -19,6 +20,11 @@ const itemTemplate = document.getElementById("item");
 const updateEl = document.getElementById("update");
 const updateTextEl = document.getElementById("update-text");
 const updateActionEl = document.getElementById("update-action");
+const playlistEl = document.getElementById("playlist");
+const playlistTitleEl = document.getElementById("playlist-title");
+const playlistStatusEl = document.getElementById("playlist-status");
+const playlistActionEl = document.getElementById("playlist-action");
+const playlistDismissEl = document.getElementById("playlist-dismiss");
 
 const INDETERMINATE = new Set(["starting"]);
 const ACTION_LABELS = { idle: "Download", error: "Retry", done: "Download again" };
@@ -39,6 +45,8 @@ let existingPath = ""; // where this track already sits in the download folder, 
 let checkState = ""; // "", "checking", "missing" or "failed"
 let openError = ""; // why the last "Open folder" click failed
 let update = null; // a newer ymy release, as the background tracks it
+let tabPlaylist = null; // { url, title } of the playlist in this tab, if any
+let playlist = null; // the playlist the background is working on, if any
 
 /** The job the card shows: this tab's download, the idle state, or the no-track hint. */
 function cardJob() {
@@ -122,8 +130,31 @@ function renderUpdate() {
   updateActionEl.textContent = update.state === "error" ? "Retry" : "Update";
 }
 
+/** The bar above the card: the running playlist, or the offer to download the one in this tab. */
+function renderPlaylist() {
+  const offer = !playlist && !!tabPlaylist && !updating();
+  playlistEl.hidden = !playlist && !offer;
+  if (playlistEl.hidden) return;
+  const title = (playlist ? playlist.title : tabPlaylist.title) || "This playlist";
+  playlistEl.dataset.state = playlist ? playlist.state : "idle";
+  playlistTitleEl.textContent = title;
+  playlistTitleEl.title = title;
+  playlistStatusEl.textContent = playlist ? playlistText(playlist) : "50–70 s between tracks";
+  playlistDismissEl.hidden = !playlist || isRunning(playlist);
+  const label = offer ? "Download all" : isRunning(playlist) ? "Stop" : playlist.state === "stopped" ? "Resume" : "";
+  playlistActionEl.hidden = !label;
+  playlistActionEl.textContent = label;
+}
+
+function onPlaylistAction() {
+  playlistActionEl.hidden = true;
+  if (!playlist) send({ cmd: "playlist", url: tabPlaylist.url, title: tabPlaylist.title });
+  else send({ cmd: isRunning(playlist) ? "playlistStop" : "playlistResume" });
+}
+
 function renderAll() {
   renderUpdate();
+  renderPlaylist();
   render(cardJob());
   renderList();
 }
@@ -189,6 +220,10 @@ function connect() {
       update = msg.update;
       renderAll();
     }
+    if (msg.type === "playlist") {
+      playlist = msg.playlist;
+      renderPlaylist();
+    }
   });
   // The service worker stops when idle and takes the port with it, even while the popup stays open.
   port.onDisconnect.addListener(() => {
@@ -209,6 +244,8 @@ async function main() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const id = tab && trackId(tab.url);
   if (id) tabTrack = { id, url: tab.url, title: cleanTabTitle(tab.title) };
+  // On a track page, the tab's title is the track's rather than the playlist's.
+  if (tab && playlistId(tab.url)) tabPlaylist = { url: tab.url, title: id ? "" : cleanTabTitle(tab.title) };
   renderAll();
 
   // Connect on every tab, so downloads started elsewhere can be followed from here.
@@ -222,6 +259,15 @@ async function main() {
     event.preventDefault();
     if (update?.url) chrome.tabs.create({ url: update.url });
   });
+  playlistActionEl.addEventListener("click", onPlaylistAction);
+  playlistDismissEl.addEventListener("click", () => send({ cmd: "playlistDismiss" }));
+  // Keep the countdown going. The service worker stops during a wait, and reconnecting
+  // brings it back, so the popup hears about the next track.
+  setInterval(() => {
+    if (!isRunning(playlist)) return;
+    if (!port) connect();
+    renderPlaylist();
+  }, 1000);
   // Keep "5 min ago" current while the popup stays open.
   setInterval(renderList, 30_000);
   if (!tabTrack) return;

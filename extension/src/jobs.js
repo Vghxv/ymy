@@ -39,7 +39,7 @@ export function reduce(job, msg, now = Date.now()) {
     case "done":
       return { ...next, state: "done", pct: 100, message: "", path: msg.path || "" };
     case "error":
-      return { ...next, state: "error", message: msg.message || "Download failed." };
+      return { ...next, state: "error", code: msg.code || "", message: msg.message || "Download failed." };
     default:
       return job;
   }

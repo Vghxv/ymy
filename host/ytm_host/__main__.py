@@ -7,6 +7,7 @@ import sys
 from . import logsetup, system
 from .downloader import run_job
 from .library import run_check
+from .playlist import run_playlist
 from .protocol import ProtocolError, read_message, write_message
 from .updater import run_update
 
@@ -17,6 +18,7 @@ HANDLERS = {
     "check": (run_check, "url"),
     "download": (run_job, "url"),
     "open": (system.run_open, "path"),
+    "playlist": (run_playlist, "url"),
     "update": (run_update, "tag"),
 }
 
