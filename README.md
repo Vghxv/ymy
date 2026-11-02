@@ -6,8 +6,6 @@ Browser extension that saves YouTube Music audio you have the rights to as MP3 f
 
 Windows 10/11, Chrome, Edge or Brave.
 
-for more details, see [description.md](description.md).
-
 ## Install
 
 1. Download `ymy-vX.Y.Z.zip` from [Releases](https://github.com/Vghxv/ymy/releases/latest) and extract it somewhere permanent (or clone this repo).
@@ -15,39 +13,11 @@ for more details, see [description.md](description.md).
 3. Restart the browser.
 4. Go to `chrome://extensions`, enable Developer mode, **Load unpacked**, pick the `extension` folder.
 
-Moved the folder? Run `install.bat` again.
+## Permitted use
 
-## Use
+Only download content that you own the rights to, that is under a Creative Commons license allowing it, or that is in the public domain.
 
-Open a track on music.youtube.com, click the icon, click **Download**.
+## Disclaimer
 
-Files are saved as `Artist - Title.mp3` (192 kbps, tagged) in your Music folder. Change the folder in the extension's Options.
+This software is provided "as is", without warranty of any kind. You are solely responsible for how you use it, including compliance with copyright law and YouTube's Terms of Service. The authors accept no liability for misuse.
 
-**Check folder** tells you if you already have the track. You can make it run automatically in Options, but avoid it on network drives or huge folders.
-
-The **≡** button in the popup opens the download manager, a page that shows every download's status live. There you can filter the list, retry failed downloads and remove entries.
-
-## Updating
-
-Once a day the extension checks GitHub for a new release. When there is one, a notification and the popup show an **Update** button: one click downloads the release, replaces the files, installs its dependencies and restarts the extension. Turn the check off in Options.
-
-Cloned with git? Use `git pull` instead.
-
-## Updating yt-dlp by hand
-
-If downloads fail with "YouTube changed something", update yt-dlp:
-
-```
-poetry add "yt-dlp[default]==<version>"
-poetry install --no-root --sync
-```
-
-Then restart the browser.
-
-## Problems
-
-Run `install.bat` again and restart the browser. If that doesn't help, check `%USERPROFILE%\.ymy\host.log`.
-
-## Uninstall
-
-Run `python host\register.py --uninstall`, remove the extension, and delete `%USERPROFILE%\.ymy`.
