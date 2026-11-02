@@ -14,17 +14,17 @@ A browser extension that saves YouTube Music audio you have the rights to as MP3
 
 ## Install
 
-1. Download `ymy-vX.Y.Z.zip` from [Releases](https://github.com/Vghxv/ymy/releases/latest) and extract it to a folder you'll keep, for example `C:\Tools\ymy`. The folder path must not contain a `%` sign. A git clone works too, but you then update it with git instead of one click (see [Updating](#updating)).
-2. Double-click **`install.bat`**. It installs what's missing (Python, ffmpeg, Deno, Poetry), sets up the downloader and connects it to your browser. If it installs Python, close the window and run `install.bat` again.
+1. Download `ymy-vX.Y.Z.zip` from [Releases](https://github.com/Vghxv/ymy/releases/latest) and extract it to a folder you'll keep, for example `C:\Tools\ymy`. The folder path must not contain a `%` sign.
+2. Double-click **`install.bat`**. It installs what's missing, sets up the helper (the small program on your computer that does the downloading) and connects it to your browser. If it installs Python, close the window and run `install.bat` again.
 3. Restart your browser.
-4. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder inside this project.
+4. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder inside your ymy folder.
 5. Pin the **ymy** icon to the toolbar.
 
-If you move the project folder later, run `install.bat` again.
+If you move the ymy folder later, run `install.bat` again.
 
 ### What the installer changes
 
-To connect the helper to your browsers, `install.bat` adds one registry key per browser, for your Windows user only (`HKEY_CURRENT_USER`, no admin rights needed):
+To connect the helper to your browsers, `install.bat` adds one entry per browser to the Windows registry. They apply to your Windows user only, and no admin rights are needed:
 
 ```
 HKCU\Software\Google\Chrome\NativeMessagingHosts\com.ymy.downloader
@@ -32,7 +32,7 @@ HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.ymy.downloader
 HKCU\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.ymy.downloader
 ```
 
-Each key points to `host\native\com.ymy.downloader.json`, which the installer writes along with its launcher, `host\native\host.bat`. Python, ffmpeg, Deno and Poetry, if the installer has to add them, are installed the usual way through winget or pipx.
+These entries tell your browser where to find the helper, using two small files the installer creates in the `host\native` folder. If your computer is missing Python, ffmpeg, Deno or Poetry, the installer adds them the usual way, with Windows' package manager (winget) or Python's (pipx).
 
 ## Usage
 
@@ -49,7 +49,7 @@ The icon can always be clicked, even when it's gray. The popup shows the track i
 | Red badge `45%` | Downloads are running (overall progress); hover the icon to see how many |
 | Red badge `...` | A download is starting, or a playlist is waiting for its next track |
 | Green badge `OK` | Everything finished, shown for a few seconds |
-| Gray badge `ERR` | A download failed; stays until you open the popup |
+| Gray badge `ERR` | A download failed; stays until you open the popup or download manager, click **Clear**, or restart the browser |
 
 ### Playlists
 
@@ -58,7 +58,7 @@ Open a playlist, or a track you played from one, and click the icon. A bar at th
 - Tracks download one at a time, with a random wait of 50 to 70 seconds between them. A long playlist takes a while.
 - You can close the popup and the browser. After a restart, the playlist continues where it left off.
 - **Stop** ends the playlist after the track being downloaded, and **Resume** continues it after one more wait.
-- The playlist stops by itself when the next tracks would fail too, for example with no connection, a full disk or YouTube rate-limiting. **Resume** tries the same track again. Any other failed track is counted and skipped; you can **Retry** it from the list.
+- The playlist stops by itself when the next tracks would fail too, for example with no connection, a full disk or YouTube limiting your requests. **Resume** tries the same track again. Any other failed track is counted and skipped; you can **Retry** it from the list.
 - Only one playlist runs at a time. Click **Dismiss** on a finished or stopped playlist to start another. You can still download single tracks in the meantime.
 
 ### Download manager
@@ -97,38 +97,37 @@ Only MP3s downloaded with this extension are recognized, even if you renamed or 
 To check automatically every time the popup opens, turn on **Check for downloaded songs automatically** in the options. It's off by default:
 
 > **Warning**
-> - **Network folders:** if your download folder is on another computer (`\\server\share` or a mapped network drive), every check sends that computer your Windows password hash. Only use a network folder you trust.
+> - **Network folders:** if your download folder is on another computer (`\\server\share` or a mapped network drive), every check sends that computer your Windows sign-in details in a scrambled form (a password hash), which its owner could try to crack. Only use a network folder you trust.
 > - **Large folders:** checking a big folder, or a whole drive like `C:\`, can take minutes. Use a folder that holds only your music.
 
 ## Updating
 
-### ymy
+### Updating ymy
 
 Once a day the extension asks GitHub whether a new version of ymy has been released. If there is one:
 
 - a notification pops up with **Update now** and **What's new** buttons, and
 - the popup shows a green bar with an **Update** button until you update.
 
-One click is enough. The helper downloads `ymy-vX.Y.Z.zip` from the release, checks it against the SHA-256 checksum GitHub publishes for it, replaces the project files (your `.venv` and settings are kept), runs `poetry install` for the new versions in `poetry.lock`, and the extension restarts itself. Downloads can't start while this runs. If a download or playlist is still running, the update doesn't start and the popup asks you to wait: click **Retry** in the bar once they finish, or **Stop** the playlist first.
+One click is enough. The helper downloads the new version from GitHub, checks that the download is complete and unchanged, and replaces ymy's files and components. Your settings are kept, and the extension then restarts itself. Downloads can't start while this runs. If a download or playlist is still running, the update doesn't start and the popup asks you to wait: click **Retry** in the bar once they finish, or **Stop** the playlist first.
 
 - To stop the daily check, turn off **Check GitHub for a new version of ymy once a day** in the options. **Check now** there still works.
-- If you cloned the project with git, the one-click update refuses to overwrite your clone. Run `git pull` and `poetry install --no-root` instead.
-- If the release changes how the helper is registered, its release notes will say to run `install.bat` again.
+- If a new version needs `install.bat` to be run again, its release notes will say so.
 
-### yt-dlp by hand
+### Updating yt-dlp yourself
 
-New ymy releases come with a tested yt-dlp version. Between releases, yt-dlp stays at a fixed version and never updates itself. When YouTube changes something, downloads fail with **"YouTube changed something"**, and you can update it yourself:
+yt-dlp is the tool ymy uses to download from YouTube. Each new version of ymy comes with a tested copy of it, and between versions it never updates itself. When YouTube changes something, downloads fail with **"YouTube changed something"**, and you can update yt-dlp yourself:
 
 1. Check the [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) for the latest version number. Waiting a day or two after a release is safer.
-2. Open a terminal in the project folder and run, with that version number:
+2. Open a terminal in the ymy folder and run these commands, with that version number in place of `YYYY.MM.DD`:
    ```
-   poetry add "yt-dlp[default]==2026.11.05"
+   poetry add "yt-dlp[default]==YYYY.MM.DD"
    poetry install --no-root --sync
    ```
-   On Poetry 2.x, the second command is `poetry sync --no-root`.
+   If the second command gives an error, run `poetry sync --no-root` instead.
 3. Restart your browser.
 
-Every package is installed at an exact, checksum-verified version listed in `poetry.lock`, so nothing changes unless you run these steps.
+Nothing ymy depends on changes by itself: only updating ymy or following these steps changes it.
 
 ## Troubleshooting
 
@@ -139,43 +138,37 @@ Every package is installed at an exact, checksum-verified version listed in `poe
 | ffmpeg was not found | Run `install.bat` again, then restart the browser. |
 | Can't create / write to the download folder | Choose another folder in the options, or click **Use default**. |
 | YouTube changed something | Update ymy from the popup if it offers one, else update yt-dlp (see [Updating](#updating)). |
-| This copy is a git clone | Run `git pull`, then `poetry install --no-root`. |
 | YouTube is asking for verification / rate-limiting | Wait a while and try again. |
 | This track is age-restricted / needs a paid subscription | These tracks can't be downloaded. |
 | Can't open this playlist | Private playlists and Liked Music need a sign-in, which ymy doesn't do. |
 | Stopped after 3 of 20 | Fix what the message before it says, if anything, then click **Resume**. |
 | Anything else | Look at the log: `%USERPROFILE%\.ymy\host.log` |
 
-If `install.bat` reports that the project folder path contains `%`, move or rename the folder and run it again.
+If `install.bat` reports that the project folder path contains `%`, move or rename your ymy folder and run it again.
 
 ## Limitations
 
 - YouTube Music only: no regular `youtube.com` videos.
-- Album pages don't offer **Download all**.
+- Album pages don't offer **Download all**, but a track you play from the album usually does.
 - Private playlists and Liked Music can't be downloaded as a playlist, because ymy doesn't sign in.
 - Age-restricted, members-only and Premium-only tracks can't be downloaded.
 - No cover art is embedded.
 
 ## Privacy
 
-Everything runs on your computer. The extension only talks to YouTube Music (to download), to the local helper, and once a day to GitHub to look for a new ymy release (you can turn that off in the options). When you click **Update**, the helper downloads the release from GitHub. Nothing is collected or sent anywhere else. The helper keeps a small log in `%USERPROFILE%\.ymy\host.log`.
+Everything runs on your computer, and only these connections leave it:
+
+- **YouTube Music:** to read playlists and download tracks. When you open the popup on a track or playlist, it also loads that page, without your sign-in, to get its name.
+- **GitHub:** to look for a new version of ymy once a day (you can turn that off in the options) and when you click **Check now**, and to download it when you click **Update**.
+- **Your browser account:** if browser sync is on, your browser syncs ymy's settings, including the download folder path, through your account.
+
+Nothing is collected or sent anywhere else. The helper keeps a small log in `%USERPROFILE%\.ymy\host.log`.
 
 ## Uninstall
 
-1. Double-click **`uninstall.bat`**. It removes the registry keys and the files in `host\native\`, which disconnects the helper from your browser.
+1. Double-click **`uninstall.bat`**. It removes the registry entries and the helper's two small files, which disconnects the helper from your browser.
 2. Remove the extension from `chrome://extensions`.
-3. Optionally, delete the project folder and `%USERPROFILE%\.ymy`.
-
-## Development
-
-Run the tests from the project folder:
-
-```
-npm test                          # extension, needs Node 22
-poetry run npm run test:host      # helper
-```
-
-GitHub Actions runs both on Windows on every push to `main` and on every pull request, except for changes that only touch docs or assets (see `.github/workflows/test.yml`).
+3. Optionally, delete your ymy folder and `%USERPROFILE%\.ymy`.
 
 ---
 
