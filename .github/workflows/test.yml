@@ -8,6 +8,13 @@ on:
       - "assets/**"
       - ".gitignore"
       - ".gitattributes"
+      - "LICENSE"
+      - "install.bat"
+      - "uninstall.bat"
+      - ".github/workflows/release.yml"
+      - "extension/icons/**"
+      - "extension/**.html"
+      - "extension/**.css"
   pull_request:
     paths-ignore: *docs
   workflow_call:
