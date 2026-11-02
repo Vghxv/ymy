@@ -18,6 +18,7 @@ log = logging.getLogger("ytm_host.library")
 VIDEO_ID = r"[A-Za-z0-9_-]{11}"
 ID_RE = re.compile(VIDEO_ID + r"\Z")
 URL_ID_RE = re.compile(r"[?&]v=(" + VIDEO_ID + r")(?:&|$)")
+TAG_LINK_RE = re.compile(rb"(?:v=|youtu\.be/)(" + VIDEO_ID.encode() + rb")(?![A-Za-z0-9_-])")
 
 # Frames that can hold the link. Everything else is skipped without reading it.
 TEXT_FRAMES = {b"COMM", b"TXXX", b"WXXX", b"WOAS", b"WOAF"}
@@ -46,59 +47,74 @@ def _needles(vid):
     return needles
 
 
-def tag_mentions(path, vid):
-    """True when the ID3v2 tag of this file contains a link to the video id."""
-    needles = _needles(vid)
+def _link_frames(path):
+    """The contents of the ID3v2 frames of this file that can hold the link."""
     try:
         with open(path, "rb") as handle:
             header = handle.read(10)
             if len(header) < 10 or header[:3] != b"ID3":
-                return False
+                return
             version = header[3]
             if version not in (3, 4):
-                return False
+                return
             end = 10 + _syncsafe(header[6:10])
             pos = 10
             if header[5] & 0x40:  # extended header
                 ext = handle.read(4)
                 if len(ext) < 4:
-                    return False
+                    return
                 ext_size = _size(ext, version) + (4 if version == 3 else 0)
                 pos += ext_size
                 handle.seek(pos)
             while pos + 10 <= end:
                 frame = handle.read(10)
                 if len(frame) < 10 or frame[0] == 0:
-                    return False  # padding or truncated
+                    return  # padding or truncated
                 frame_id = frame[:4]
                 size = _size(frame[4:8], version)
                 pos += 10
                 if size <= 0 or pos + size > end:
-                    return False
+                    return
                 if frame_id in TEXT_FRAMES and size <= MAX_FRAME_BYTES:
-                    body = handle.read(size)
-                    if any(needle in body for needle in needles):
-                        return True
+                    yield handle.read(size)
                 else:
                     handle.seek(size, os.SEEK_CUR)
                 pos += size
     except OSError:
-        return False
-    return False
+        return
+
+
+def tag_mentions(path, vid):
+    """True when the ID3v2 tag of this file contains a link to the video id."""
+    needles = _needles(vid)
+    return any(needle in body for body in _link_frames(path) for needle in needles)
+
+
+def _mp3_files(root):
+    for folder, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if not d.startswith((".", "$"))]
+        for name in files:
+            if name.lower().endswith(".mp3"):
+                yield os.path.join(folder, name)
 
 
 def find_track(root, vid):
     """Path of an MP3 under root (any depth) tagged with this video id, else None."""
     if not ID_RE.match(vid or "") or not root or not os.path.isdir(root):
         return None
-    for folder, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if not d.startswith((".", "$"))]
-        for name in files:
-            if name.lower().endswith(".mp3"):
-                path = os.path.join(folder, name)
-                if tag_mentions(path, vid):
-                    return path
-    return None
+    return next((path for path in _mp3_files(root) if tag_mentions(path, vid)), None)
+
+
+def video_ids_in(root):
+    """The video ids of all MP3s under root (any depth). Each file is only read once."""
+    ids = set()
+    if not root or not os.path.isdir(root):
+        return ids
+    for path in _mp3_files(root):
+        for body in _link_frames(path):
+            # Dropping the zero bytes turns the link in UTF-16 into plain ASCII.
+            ids.update(id.decode("ascii") for id in TAG_LINK_RE.findall(body.replace(b"\x00", b"")))
+    return ids
 
 
 def run_check(url, emit, output_dir=None, resolve_dir=system.resolve_output_dir):

@@ -16,13 +16,27 @@ export function isRunning(playlist) {
 }
 
 export function newPlaylist(id, title = "") {
-  return { id, title, state: "loading", tracks: [], next: 0, failed: 0, currentId: "", wakeAt: 0, message: "" };
+  return { id, title, state: "loading", tracks: [], next: 0, failed: 0, skipped: 0, currentId: "", wakeAt: 0, message: "" };
 }
 
-/** Apply the helper's answer to "list this playlist". */
+/** Apply the helper's answer to "list this playlist": the tracks that aren't in the folder yet. */
 export function listed(playlist, msg) {
-  if (msg.type === "playlist") return { ...playlist, title: msg.title || playlist.title, tracks: msg.tracks || [] };
+  if (msg.type === "playlist") {
+    const tracks = msg.tracks || [];
+    return {
+      ...playlist,
+      title: msg.title || playlist.title,
+      tracks,
+      skipped: msg.skipped || 0,
+      state: tracks.length ? playlist.state : "done",
+    };
+  }
   return { ...playlist, state: "error", message: msg.message || "Couldn't read this playlist." };
+}
+
+/** Names the folder for this playlist's tracks. The helper makes it a safe folder name. */
+export function subfolder(playlist) {
+  return playlist.title || playlist.id;
 }
 
 export function startNext(playlist) {
@@ -81,8 +95,10 @@ export function playlistText(playlist, now = Date.now()) {
       return `${playlist.next} of ${total} done · next in ${seconds} s`;
     }
     case "done": {
+      if (!total) return `All ${playlist.skipped} tracks are already in the folder`;
       const saved = playlist.next - playlist.failed;
-      return playlist.failed ? `${saved} of ${total} saved, ${playlist.failed} failed` : `All ${total} tracks saved`;
+      const text = playlist.failed ? `${saved} of ${total} saved, ${playlist.failed} failed` : `All ${total} tracks saved`;
+      return playlist.skipped ? `${text}, ${playlist.skipped} already in the folder` : text;
     }
     case "stopped": {
       const progress = `Stopped after ${playlist.next} of ${total}.`;

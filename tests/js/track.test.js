@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canonicalUrl, cleanTabTitle, playlistId, playlistUrl, trackId } from "../../extension/src/track.js";
+import { canonicalUrl, cleanTabTitle, playlistId, playlistPageTitle, playlistUrl, trackId } from "../../extension/src/track.js";
 
 test("trackId accepts a YouTube Music track page and ignores extra params", () => {
   assert.equal(trackId("https://music.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
@@ -56,8 +56,20 @@ test("playlistUrl keeps only the playlist", () => {
   assert.equal(playlistUrl("PL1"), "https://music.youtube.com/playlist?list=PL1");
 });
 
+test("playlistPageTitle reads the playlist's name, but not the placeholders of a page without one", () => {
+  const page = (content) => ({
+    querySelector: (selector) => (selector === 'meta[property="og:title"]' && content !== null ? { content } : null),
+  });
+  assert.equal(playlistPageTitle(page("game")), "game");
+  assert.equal(playlistPageTitle(page(" Road Trip ")), "Road Trip");
+  for (const content of ["undefined", "YouTube Music", "", null]) {
+    assert.equal(playlistPageTitle(page(content)), "", String(content));
+  }
+});
+
 test("cleanTabTitle strips the site suffix", () => {
   assert.equal(cleanTabTitle("Some Song - YouTube Music"), "Some Song");
+  assert.equal(cleanTabTitle("Some Song | YouTube Music"), "Some Song");
   assert.equal(cleanTabTitle("Some Song"), "Some Song");
   assert.equal(cleanTabTitle(undefined), "");
 });

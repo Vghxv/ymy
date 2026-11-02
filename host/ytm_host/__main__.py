@@ -72,7 +72,11 @@ def main():
     output_dir = request.get("output_dir")
     output_dir = output_dir if isinstance(output_dir, str) and output_dir.strip() else None
     log.info("%s requested: %s (folder: %s)", request["type"], argument, output_dir or "default")
-    handler(argument, emit, output_dir=output_dir)
+    options = {"output_dir": output_dir}
+    subfolder = request.get("subfolder")
+    if request["type"] in ("download", "playlist") and isinstance(subfolder, str):
+        options["subfolder"] = subfolder
+    handler(argument, emit, **options)
     return 0
 
 

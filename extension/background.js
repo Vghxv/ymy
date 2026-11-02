@@ -2,7 +2,7 @@ import { HOST_NAME, helperErrorMessage } from "./src/native.js";
 import { getOutputDir, getUpdateCheck } from "./src/settings.js";
 import { canonicalUrl, playlistId, playlistUrl, trackId } from "./src/track.js";
 import { activeSummary, interruptedJob, isActive, newJob, reduce } from "./src/jobs.js";
-import { isRunning, listed, newPlaylist, randomWaitMs, restored, resumed, startNext, stopped, trackFinished } from "./src/playlist.js";
+import { isRunning, listed, newPlaylist, randomWaitMs, restored, resumed, startNext, stopped, subfolder, trackFinished } from "./src/playlist.js";
 import { RELEASES_API, availableUpdate, isNewer, reduceUpdate } from "./src/update.js";
 
 const MAX_STORED_JOBS = 20;
@@ -204,10 +204,10 @@ function fail(id, reason) {
 
 // ---------- talking to the helper ----------
 
-async function startDownload(id, titleHint) {
+async function startDownload(id, titleHint, folder = "") {
   helpers.get(id)?.disconnect();
   jobs.delete(id); // a new attempt moves to the top of the list
-  setJob(id, newJob(id, titleHint));
+  setJob(id, { ...newJob(id, titleHint), subfolder: folder }); // kept so a retry saves to the same place
 
   let outputDir;
   let port;
@@ -229,7 +229,7 @@ async function startDownload(id, titleHint) {
     if (isActive(jobs.get(id))) fail(id, reason);
   });
 
-  port.postMessage({ type: "download", url: canonicalUrl(id), output_dir: outputDir });
+  port.postMessage({ type: "download", url: canonicalUrl(id), output_dir: outputDir, subfolder: folder });
 }
 
 // ---------- playlists ----------
@@ -258,23 +258,26 @@ async function startPlaylist(id, titleHint) {
   setPlaylist(newPlaylist(id, titleHint));
   const stillLoading = () => playlist?.state === "loading" && playlist.id === id;
 
+  let outputDir;
   let port;
   try {
+    outputDir = await getOutputDir();
     port = chrome.runtime.connectNative(HOST_NAME);
   } catch (error) {
-    setPlaylist(listed(playlist, { type: "error", message: helperErrorMessage(error.message) }));
+    if (stillLoading()) setPlaylist(listed(playlist, { type: "error", message: helperErrorMessage(error.message) }));
     return;
   }
   port.onMessage.addListener((msg) => {
     if (!stillLoading()) return;
     setPlaylist(listed(playlist, msg));
-    if (msg.type === "playlist") downloadNextTrack();
+    if (stillLoading()) downloadNextTrack();
   });
   port.onDisconnect.addListener(() => {
     const reason = chrome.runtime.lastError?.message;
     if (stillLoading()) setPlaylist(listed(playlist, { type: "error", message: helperErrorMessage(reason) }));
   });
-  port.postMessage({ type: "playlist", url: playlistUrl(id) });
+  // The helper leaves out the tracks that are already in the playlist's folder.
+  port.postMessage({ type: "playlist", url: playlistUrl(id), output_dir: outputDir, subfolder: subfolder(playlist) });
 }
 
 function downloadNextTrack() {
@@ -282,7 +285,7 @@ function downloadNextTrack() {
   setPlaylist(startNext(playlist));
   // Started by hand in the meantime: that download counts as this track's.
   const existing = jobs.get(id);
-  if (!isActive(existing)) startDownload(id, title || existing?.title || "");
+  if (!isActive(existing)) startDownload(id, title || existing?.title || "", subfolder(playlist));
 }
 
 function playlistTrackFinished(job) {
@@ -443,7 +446,7 @@ async function handlePopupCommand(port, msg) {
       if (!id || selfUpdate?.state === "updating") return;
       const existing = jobs.get(id);
       if (isActive(existing)) broadcast();
-      else startDownload(id, msg.title || existing?.title || "");
+      else startDownload(id, msg.title || existing?.title || "", existing?.subfolder);
       return;
     }
     case "clear":

@@ -2,7 +2,7 @@ import { historyText, idleJob, isActive, noTrackJob, shownOnOpen, statusText } f
 import { HOST_NAME, helperErrorMessage } from "../src/native.js";
 import { getAutoCheck, getOutputDir } from "../src/settings.js";
 import { isRunning, playlistText } from "../src/playlist.js";
-import { canonicalUrl, cleanTabTitle, playlistId, trackId } from "../src/track.js";
+import { canonicalUrl, cleanTabTitle, playlistId, playlistPageTitle, playlistUrl, trackId } from "../src/track.js";
 import { updateText } from "../src/update.js";
 
 const card = document.getElementById("card");
@@ -239,13 +239,32 @@ function send(msg) {
   port.postMessage(msg);
 }
 
+/**
+ * The tab's title can't name the playlist: it shows the track playing, even on a playlist page.
+ * Without cookies, like the helper's listing. A redirect means a page such as a consent form.
+ */
+async function loadPlaylistTitle(id) {
+  try {
+    const response = await fetch(playlistUrl(id), { credentials: "omit", redirect: "error" });
+    if (!response.ok) return;
+    const doc = new DOMParser().parseFromString(await response.text(), "text/html");
+    tabPlaylist.title = playlistPageTitle(doc);
+    renderPlaylist();
+  } catch {
+    // The bar keeps saying "This playlist", and the helper finds the name when it lists the tracks.
+  }
+}
+
 async function main() {
   openEl.addEventListener("click", () => openFolder());
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const id = tab && trackId(tab.url);
   if (id) tabTrack = { id, url: tab.url, title: cleanTabTitle(tab.title) };
-  // On a track page, the tab's title is the track's rather than the playlist's.
-  if (tab && playlistId(tab.url)) tabPlaylist = { url: tab.url, title: id ? "" : cleanTabTitle(tab.title) };
+  const listId = tab && playlistId(tab.url);
+  if (listId) {
+    tabPlaylist = { url: tab.url, title: "" };
+    loadPlaylistTitle(listId);
+  }
   renderAll();
 
   // Connect on every tab, so downloads started elsewhere can be followed from here.

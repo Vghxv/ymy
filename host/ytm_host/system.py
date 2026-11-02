@@ -3,6 +3,7 @@
 import glob
 import logging
 import os
+import re
 import shutil
 import subprocess
 
@@ -11,6 +12,13 @@ from .errors import HelperError
 log = logging.getLogger("ytm_host.system")
 
 APP_DIR_NAME = ".ymy"
+
+# Not allowed in a Windows file name. % and $ are allowed, but yt-dlp expands environment
+# variables in its output folder, so a playlist called "%TEMP%" would save somewhere else.
+UNSAFE_NAME_RE = re.compile(r'[<>:"/\\|?*%$\x00-\x1f]')
+RESERVED_NAME_RE = re.compile(r"(CON|PRN|AUX|NUL|COM[0-9¹²³]|LPT[0-9¹²³])\Z", re.IGNORECASE)
+MAX_FOLDER_NAME = 80  # the MP3's own name and the parent folders share Windows' path limit
+FALLBACK_FOLDER_NAME = "Playlist"
 
 
 def config_dir():
@@ -59,6 +67,23 @@ def _chosen_output_dir(folder):
     if not os.path.isdir(folder) or not os.access(folder, os.W_OK):
         raise HelperError("disk", "Can't write to {}. Change the download folder in the extension options.".format(folder))
     return folder
+
+
+def folder_name(title):
+    """A playlist title as one safe folder name. Anyone can pick a title, such as "..\\..\\x"."""
+    # No leading dot: looking for downloaded tracks skips hidden folders, and ".." isn't a name.
+    name = UNSAFE_NAME_RE.sub("_", title)[:MAX_FOLDER_NAME].strip().lstrip(". ").rstrip(". ")
+    if RESERVED_NAME_RE.match(name.split(".")[0].strip()):
+        name = "_" + name
+    return name or FALLBACK_FOLDER_NAME
+
+
+def subfolder_of(parent, title):
+    """The folder for a playlist's tracks inside the download folder, created if needed."""
+    folder = os.path.join(parent, folder_name(title))
+    if os.path.isfile(folder):
+        raise HelperError("disk", "A file with the name of playlist exists.")
+    return _chosen_output_dir(folder)
 
 
 def winget_dir(local_appdata=None):

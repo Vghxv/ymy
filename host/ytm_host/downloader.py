@@ -155,10 +155,11 @@ def run_job(
     js_options=system.js_runtime_options,
     output_dir=None,
     temp_dir=system.temp_dir,
+    subfolder=None,
 ):
     """Run one download. Always ends by emitting exactly one 'done' or 'error'."""
     try:
-        path = _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir, temp_dir)
+        path = _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir, temp_dir, subfolder)
     except HelperError as exc:
         error = exc
     except Exception as exc:
@@ -171,7 +172,7 @@ def run_job(
     emit(error.to_message())
 
 
-def _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir, temp_dir):
+def _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir, temp_dir, subfolder):
     if not URL_RE.match(url or ""):
         raise HelperError("invalid_url", "That is not a YouTube Music track link.")
 
@@ -180,6 +181,8 @@ def _run(url, emit, load, find_ffmpeg, resolve_dir, js_options, output_dir, temp
         raise HelperError("ffmpeg_missing")
 
     out_dir = resolve_dir(chosen=output_dir) if output_dir else resolve_dir()
+    if subfolder:
+        out_dir = system.subfolder_of(out_dir, subfolder)
     yt_dlp = load()
     try:
         return _download_once(url, emit, yt_dlp, out_dir, temp_dir(), ffmpeg_path, js_options())

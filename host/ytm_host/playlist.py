@@ -2,11 +2,13 @@
 
 import json
 import logging
+import os
 import re
 
+from . import system
 from .downloader import _YdlLogger, load_yt_dlp
 from .errors import HelperError
-from .library import ID_RE
+from .library import ID_RE, video_ids_in
 from .protocol import MAX_MESSAGE_BYTES
 
 log = logging.getLogger("ytm_host.playlist")
@@ -69,10 +71,21 @@ def _list(url, load):
     return info.get("title") or "", tracks
 
 
-def run_playlist(url, emit, output_dir=None, load=load_yt_dlp):
-    """Answer a 'playlist' request with exactly one 'playlist' or 'error' message."""
+def _on_disk(name, output_dir, resolve_dir):
+    """The video ids already in the playlist's folder. Like a check, this never creates the folder."""
+    root = system.expand_dir(output_dir) if output_dir else resolve_dir()
+    return video_ids_in(os.path.join(root, system.folder_name(name)))
+
+
+def run_playlist(url, emit, output_dir=None, load=load_yt_dlp, subfolder="", resolve_dir=system.resolve_output_dir):
+    """Answer a 'playlist' request with exactly one 'playlist' or 'error' message.
+
+    subfolder names the folder when the playlist has no title, and the tracks
+    that are already in that folder are left out of the answer.
+    """
     try:
         title, tracks = _list(url, load)
+        on_disk = _on_disk(title or subfolder, output_dir, resolve_dir)
     except HelperError as error:
         log.warning("listing failed: %s (%s)", error.code, error.message)
         emit(error.to_message())
@@ -81,5 +94,7 @@ def run_playlist(url, emit, output_dir=None, load=load_yt_dlp):
         log.exception("unexpected failure")
         emit(HelperError("unknown", "Couldn't read this playlist.").to_message())
         return
-    log.info("playlist %s: %d tracks", url, len(tracks))
-    emit({"type": "playlist", "title": title, "tracks": fit_message(tracks)})
+    missing = [track for track in tracks if track["id"] not in on_disk]
+    skipped = len(tracks) - len(missing)
+    log.info("playlist %s: %d tracks, %d already downloaded", url, len(tracks), skipped)
+    emit({"type": "playlist", "title": title, "tracks": fit_message(missing), "skipped": skipped})

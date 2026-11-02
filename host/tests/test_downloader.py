@@ -82,7 +82,7 @@ class RunJobTests(unittest.TestCase):
         self.folder.cleanup()
         self.work.cleanup()
 
-    def run_job(self, yt_dlp_behaviours, url=GOOD_URL, ffmpeg="ffmpeg"):
+    def run_job(self, yt_dlp_behaviours, url=GOOD_URL, ffmpeg="ffmpeg", subfolder=None):
         loads = []
 
         def load():
@@ -97,6 +97,7 @@ class RunJobTests(unittest.TestCase):
             resolve_dir=lambda: self.folder.name,
             js_options=lambda: {},
             temp_dir=lambda: self.work.name,
+            subfolder=subfolder,
         )
         self.loads = loads
         return self.events
@@ -132,6 +133,27 @@ class RunJobTests(unittest.TestCase):
         self.run_job([successful_download()])
         self.assertEqual(os.listdir(self.folder.name), ["Artist - Song.mp3"])
         self.assertEqual(os.path.dirname(self.last()["path"]), self.folder.name)
+
+    def test_a_subfolder_is_created_and_receives_the_mp3(self):
+        self.run_job([successful_download()], subfolder="Road Trip")
+        expected = os.path.join(self.folder.name, "Road Trip", "Artist - Song.mp3")
+        self.assertEqual(self.last()["type"], "done")
+        self.assertEqual(self.last()["path"], expected)
+        self.assertTrue(os.path.isfile(expected))
+        self.assertEqual(os.listdir(self.folder.name), ["Road Trip"])
+
+    def test_a_subfolder_title_cannot_leave_the_download_folder(self):
+        self.run_job([successful_download()], subfolder="..\\..\\escaped")
+        self.assertEqual(self.last()["type"], "done")
+        parent = os.path.dirname(self.last()["path"])
+        self.assertEqual(os.path.dirname(parent), self.folder.name)
+
+    def test_a_file_named_like_the_playlist_is_reported_and_kept(self):
+        blocker = os.path.join(self.folder.name, "Road Trip")
+        open(blocker, "w").close()
+        self.run_job([successful_download()], subfolder="Road Trip")
+        self.assertEqual(self.last(), {"type": "error", "code": "disk", "message": "A file with the name of playlist exists."})
+        self.assertTrue(os.path.isfile(blocker))
 
     def test_a_leftover_mp3_in_temp_is_not_reported_as_the_download(self):
         with open(os.path.join(self.work.name, "ghost.mp3"), "wb") as handle:

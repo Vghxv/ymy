@@ -3,7 +3,7 @@ import struct
 import tempfile
 import unittest
 
-from ytm_host.library import find_track, run_check, tag_mentions, video_id
+from ytm_host.library import find_track, run_check, tag_mentions, video_id, video_ids_in
 
 VID = "dQw4w9WgXcQ"
 URL = "https://music.youtube.com/watch?v=" + VID
@@ -76,6 +76,25 @@ class TagTests(unittest.TestCase):
         self.assertIsNone(find_track(self.dir, VID))
         self.assertIsNone(find_track(os.path.join(self.dir, "nope"), VID))
         self.assertIsNone(find_track(self.dir, "bad"))
+
+    def test_video_ids_in_finds_every_tagged_mp3(self):
+        other = "AAAAAAAAAAA"
+        self.write("a.mp3", id3([comment(URL)]))
+        utf16 = frame(b"TXXX", b"\x01" + "purl\x00".encode("utf-16") + ("https://youtu.be/" + other).encode("utf-16"), version=3)
+        self.write("sub/renamed.MP3", id3([utf16], version=3))
+        self.write("notes.txt", URL.replace(VID, "BBBBBBBBBBB").encode())
+        self.write("untagged.mp3", b"\xff\xfbaudio")
+        self.write(".hidden/c.mp3", id3([comment(URL.replace(VID, "CCCCCCCCCCC"))]))
+        self.assertEqual(video_ids_in(self.dir), {VID, other})
+
+    def test_video_ids_in_ignores_ids_of_the_wrong_length(self):
+        self.write("a.mp3", id3([comment("https://music.youtube.com/watch?v=" + VID + "x")]))
+        self.assertEqual(video_ids_in(self.dir), set())
+
+    def test_video_ids_in_a_missing_folder_is_empty_and_not_created(self):
+        missing = os.path.join(self.dir, "nope")
+        self.assertEqual(video_ids_in(missing), set())
+        self.assertFalse(os.path.exists(missing))
 
     def test_video_id(self):
         self.assertEqual(video_id(URL), VID)

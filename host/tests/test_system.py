@@ -52,6 +52,40 @@ class ChosenOutputDirTests(unittest.TestCase):
             self.assertEqual(system.resolve_output_dir(home, chosen="  "), os.path.join(home, "Music"))
 
 
+class FolderNameTests(unittest.TestCase):
+    def test_a_normal_title_is_kept(self):
+        for title in ("Road Trip", "夏天的歌", "Vol. 2 (Live)", "Rock & Roll"):
+            self.assertEqual(system.folder_name(title), title)
+
+    def test_path_separators_cannot_leave_the_folder(self):
+        self.assertEqual(system.folder_name("..\\..\\Windows"), "_.._Windows")
+        self.assertEqual(system.folder_name("../../x"), "_.._x")
+        self.assertEqual(system.folder_name("C:\\Windows"), "C__Windows")
+
+    def test_characters_windows_refuses_are_replaced(self):
+        self.assertEqual(system.folder_name('a<b>c:d"e|f?g*h\ni'), "a_b_c_d_e_f_g_h_i")
+
+    def test_environment_variables_are_not_left_for_yt_dlp_to_expand(self):
+        self.assertEqual(system.folder_name("%TEMP%"), "_TEMP_")
+        self.assertEqual(system.folder_name("$HOME and ${HOME}"), "_HOME and _{HOME}")
+
+    def test_leading_and_trailing_dots_and_spaces_are_removed(self):
+        self.assertEqual(system.folder_name("  . hidden .. "), "hidden")
+
+    def test_reserved_device_names_are_changed(self):
+        for title in ("CON", "nul", "COM1", "LPT¹", "Aux.mix"):
+            self.assertTrue(system.folder_name(title).startswith("_"), title)
+        self.assertEqual(system.folder_name("Concert"), "Concert")
+
+    def test_nothing_usable_gets_a_fallback_name(self):
+        for title in ("", "   ", "...", ". ."):
+            self.assertEqual(system.folder_name(title), "Playlist")
+
+    def test_long_titles_are_cut_without_ending_badly(self):
+        name = system.folder_name("x" * 79 + ". yyy")
+        self.assertEqual(name, "x" * 79)
+
+
 class FfmpegTests(unittest.TestCase):
     def test_prefers_path(self):
         self.assertEqual(system.find_ffmpeg(which=lambda name: "C:\\bin\\ffmpeg.exe"), "C:\\bin\\ffmpeg.exe")

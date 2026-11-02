@@ -43,9 +43,18 @@ export function playlistUrl(id) {
   return `https://${MUSIC_HOST}/playlist?list=${id}`;
 }
 
-/** "Song - YouTube Music" -> "Song" */
+/**
+ * The playlist's name in its page, or "" when there is none: a playlist that is missing or
+ * needs a sign-in gets "undefined" or the site's name there.
+ */
+export function playlistPageTitle(doc) {
+  const title = doc.querySelector('meta[property="og:title"]')?.content?.trim() || "";
+  return title === "undefined" || title === "YouTube Music" ? "" : title;
+}
+
+/** "Song - YouTube Music" or "Song | YouTube Music" -> "Song" */
 export function cleanTabTitle(title) {
   return String(title || "")
-    .replace(/\s*-\s*YouTube Music\s*$/i, "")
+    .replace(/\s*[-|]\s*YouTube Music\s*$/i, "")
     .trim();
 }

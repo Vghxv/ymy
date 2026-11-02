@@ -1,7 +1,11 @@
+import os
+import tempfile
 import unittest
 from types import SimpleNamespace
 
 from ytm_host.playlist import MAX_TRACKS_BYTES, PLAYLIST_URL_RE, fit_message, run_playlist, tracks_from
+
+from .test_library import comment, id3
 
 GOOD_URL = "https://music.youtube.com/playlist?list=PL123_abc-XYZ"
 A = "dQw4w9WgXcQ"
@@ -29,7 +33,15 @@ def fake_yt_dlp(result):
 
 
 class RunPlaylistTests(unittest.TestCase):
-    def run_playlist(self, result, url=GOOD_URL):
+    MIX = {"title": "Mix", "entries": [{"id": A, "title": "One"}, {"id": B, "title": "Two"}]}
+
+    def save_track(self, root, folder, vid):
+        path = os.path.join(root, folder, vid + ".mp3")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(id3([comment("https://music.youtube.com/watch?v=" + vid)]))
+
+    def run_playlist(self, result, url=GOOD_URL, output_dir="ignored", subfolder=""):
         events = []
         loads = []
 
@@ -37,7 +49,7 @@ class RunPlaylistTests(unittest.TestCase):
             loads.append(True)
             return fake_yt_dlp(result)
 
-        run_playlist(url, events.append, output_dir="ignored", load=load)
+        run_playlist(url, events.append, output_dir=output_dir, load=load, subfolder=subfolder)
         self.assertEqual(len(events), 1)
         self.loads = loads
         return events[0]
@@ -46,8 +58,41 @@ class RunPlaylistTests(unittest.TestCase):
         reply = self.run_playlist({"title": "Mix", "entries": [{"id": A, "title": "One"}, {"id": B, "title": "Two"}]})
         self.assertEqual(
             reply,
-            {"type": "playlist", "title": "Mix", "tracks": [{"id": A, "title": "One"}, {"id": B, "title": "Two"}]},
+            {"type": "playlist", "title": "Mix", "tracks": [{"id": A, "title": "One"}, {"id": B, "title": "Two"}], "skipped": 0},
         )
+
+    def test_tracks_in_the_playlists_folder_are_left_out(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.save_track(root, "Mix", A)
+            self.save_track(root, "Other", B)  # another playlist's folder doesn't count
+            reply = self.run_playlist(self.MIX, output_dir=root)
+        self.assertEqual(reply["tracks"], [{"id": B, "title": "Two"}])
+        self.assertEqual(reply["skipped"], 1)
+
+    def test_everything_in_the_folder_leaves_no_tracks_without_an_error(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.save_track(root, "Mix", A)
+            self.save_track(root, "Mix", B)
+            reply = self.run_playlist(self.MIX, output_dir=root)
+        self.assertEqual((reply["type"], reply["tracks"], reply["skipped"]), ("playlist", [], 2))
+
+    def test_a_track_in_the_download_folder_itself_is_not_skipped(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.save_track(root, "", A)
+            self.assertEqual(self.run_playlist(self.MIX, output_dir=root)["skipped"], 0)
+
+    def test_the_default_download_folder_is_used_and_no_folder_is_created(self):
+        with tempfile.TemporaryDirectory() as root:
+            events = []
+            run_playlist(GOOD_URL, events.append, load=lambda: fake_yt_dlp(self.MIX), resolve_dir=lambda: root)
+            self.assertEqual(events[0]["skipped"], 0)
+            self.assertEqual(os.listdir(root), [])
+
+    def test_a_playlist_without_a_title_uses_the_given_folder_name(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.save_track(root, "PL123", A)
+            reply = self.run_playlist({"title": "", "entries": self.MIX["entries"]}, output_dir=root, subfolder="PL123")
+        self.assertEqual(reply["skipped"], 1)
 
     def test_only_playlist_links_are_accepted(self):
         reply = self.run_playlist({}, url="https://evil.example/playlist?list=PL1")

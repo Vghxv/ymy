@@ -12,6 +12,7 @@ import {
   resumed,
   startNext,
   stopped,
+  subfolder,
   trackFinished,
 } from "../../extension/src/playlist.js";
 
@@ -94,6 +95,24 @@ test("Stop keeps the place, and stopping during the last track just finishes", (
 
   const last = trackFinished(startNext(loaded()), { state: "done" }, 60_000, T0);
   assert.equal(stopped(startNext(last)).state, "done");
+});
+
+test("the tracks' folder is named after the playlist, or its id when it has no title", () => {
+  assert.equal(subfolder(loaded()), "Mix");
+  assert.equal(subfolder(listed(newPlaylist("PL1", "Tab"), { type: "playlist", title: "", tracks: TRACKS })), "Tab");
+  assert.equal(subfolder(listed(newPlaylist("PL1"), { type: "playlist", title: "", tracks: TRACKS })), "PL1");
+});
+
+test("tracks already in the folder are counted, and a playlist with nothing left is done", () => {
+  let playlist = listed(newPlaylist("PL1"), { type: "playlist", title: "Mix", tracks: TRACKS.slice(1), skipped: 1 });
+  assert.equal(playlist.state, "loading");
+  playlist = trackFinished(startNext(playlist), { state: "done" }, 60_000, T0);
+  assert.equal(playlistText(playlist), "All 1 tracks saved, 1 already in the folder");
+
+  const nothingLeft = listed(newPlaylist("PL1"), { type: "playlist", title: "Mix", tracks: [], skipped: 2 });
+  assert.equal(nothingLeft.state, "done");
+  assert.ok(!isRunning(nothingLeft));
+  assert.equal(playlistText(nothingLeft), "All 2 tracks are already in the folder");
 });
 
 test("a listing failure is an error with the helper's message", () => {
