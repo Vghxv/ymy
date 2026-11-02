@@ -2,7 +2,7 @@ import { historyText, idleJob, isActive, noTrackJob, shownOnOpen, statusText } f
 import { HOST_NAME, helperErrorMessage } from "../src/native.js";
 import { getAutoCheck, getOutputDir } from "../src/settings.js";
 import { isRunning, playlistText } from "../src/playlist.js";
-import { canonicalUrl, cleanTabTitle, playlistId, playlistPageTitle, playlistUrl, trackId } from "../src/track.js";
+import { canonicalUrl, pageTitle, playlistId, playlistUrl, trackId } from "../src/track.js";
 import { updateText } from "../src/update.js";
 
 const card = document.getElementById("card");
@@ -240,19 +240,28 @@ function send(msg) {
 }
 
 /**
- * The tab's title can't name the playlist: it shows the track playing, even on a playlist page.
+ * The tab's title can't name what's on the page: it shows the track playing, if any.
  * Without cookies, like the helper's listing. A redirect means a page such as a consent form.
+ * Returns "" on failure: the helper finds the name when it starts on the track or lists the playlist.
  */
-async function loadPlaylistTitle(id) {
+async function fetchPageTitle(url) {
   try {
-    const response = await fetch(playlistUrl(id), { credentials: "omit", redirect: "error" });
-    if (!response.ok) return;
-    const doc = new DOMParser().parseFromString(await response.text(), "text/html");
-    tabPlaylist.title = playlistPageTitle(doc);
-    renderPlaylist();
+    const response = await fetch(url, { credentials: "omit", redirect: "error" });
+    if (!response.ok) return "";
+    return pageTitle(new DOMParser().parseFromString(await response.text(), "text/html"));
   } catch {
-    // The bar keeps saying "This playlist", and the helper finds the name when it lists the tracks.
+    return "";
   }
+}
+
+async function loadTrackTitle(id) {
+  tabTrack.title = await fetchPageTitle(canonicalUrl(id));
+  renderAll();
+}
+
+async function loadPlaylistTitle(id) {
+  tabPlaylist.title = await fetchPageTitle(playlistUrl(id));
+  renderPlaylist();
 }
 
 async function main() {
@@ -262,7 +271,10 @@ async function main() {
   });
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const id = tab && trackId(tab.url);
-  if (id) tabTrack = { id, url: tab.url, title: cleanTabTitle(tab.title) };
+  if (id) {
+    tabTrack = { id, url: tab.url, title: "" };
+    loadTrackTitle(id);
+  }
   const listId = tab && playlistId(tab.url);
   if (listId) {
     tabPlaylist = { url: tab.url, title: "" };
