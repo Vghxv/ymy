@@ -1,10 +1,10 @@
 # ymy
 
-[![Tests](https://github.com/Vghxv/ymy/actions/workflows/test.yml/badge.svg)](https://github.com/Vghxv/ymy/actions/workflows/test.yml)
-
 Browser extension that saves YouTube Music audio you have the rights to as MP3 files.
 
 Windows 10/11, Chrome, Edge or Brave.
+
+For more information, see [description](description.md).
 
 ## Install
 
