@@ -25,6 +25,8 @@ Files are saved as `Artist - Title.mp3` (192 kbps, tagged) in your Music folder.
 
 **Check folder** tells you if you already have the track. You can make it run automatically in Options, but avoid it on network drives or huge folders.
 
+The **≡** button in the popup opens the download manager, a page that shows every download's status live. There you can filter the list, retry failed downloads and remove entries.
+
 ## Updating
 
 Once a day the extension checks GitHub for a new release. When there is one, a notification and the popup show an **Update** button: one click downloads the release, replaces the files, installs its dependencies and restarts the extension. Turn the check off in Options.

@@ -4,6 +4,7 @@ A browser extension that saves YouTube Music audio you have the rights to as MP3
 
 - One click per track, with a progress bar in the popup and on the icon badge
 - A list of recent downloads, so you can follow them from any tab
+- A download manager page that updates live while downloads run
 - Saves `Artist - Title.mp3` (192 kbps) with title, artist and album tags
 - Downloads keep going when you close the popup
 - Optional check for whether you already have the track
@@ -47,6 +48,20 @@ The icon can always be clicked, even when it's gray. The popup shows the track i
 | Red badge `45%` | Downloads are running (overall progress); hover the icon to see how many |
 | Green badge `OK` | Everything finished, shown for a few seconds |
 | Gray badge `ERR` | A download failed; stays until you open the popup |
+
+### Download manager
+
+Click the **≡** button in the popup to open the download manager in a new tab. It shows the same downloads as the popup with more room, and updates by itself while downloads run, wherever you started them. You can keep it open in the background.
+
+- The line under the heading counts what's running, saved and failed.
+- **All**, **Running**, **Saved** and **Failed** filter the list.
+- Running downloads come first, with their progress. After them, the most recent download comes first.
+- **Show in folder** shows a finished MP3 in Explorer, and **Open folder** at the top opens the download folder.
+- **Retry** starts a failed download again.
+- **Remove** takes one finished or failed download off the list, and **Clear finished** takes off all of them. The MP3 files stay on your disk.
+- Click a title to open the track on YouTube Music.
+
+The list keeps the latest 200 downloads, shared with the popup. A download that has started can't be cancelled.
 
 ### Download folder
 

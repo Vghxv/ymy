@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ymy downloads</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+  <header class="header">
+    <div>
+      <h1>Downloads</h1>
+      <div id="summary" class="muted"></div>
+    </div>
+    <button id="open" class="button" type="button">Open folder</button>
+  </header>
+  <div id="notice" class="notice" hidden></div>
+  <section id="playlist" class="panel" hidden>
+    <div class="row">
+      <div class="grow">
+        <div id="playlist-title" class="title"></div>
+        <div id="playlist-status" class="status"></div>
+      </div>
+      <button id="playlist-dismiss" class="button" type="button" hidden>Dismiss</button>
+      <button id="playlist-action" class="button" type="button" hidden></button>
+    </div>
+    <div class="bar"><div id="playlist-fill" class="fill"></div></div>
+    <details id="upcoming" class="upcoming" hidden>
+      <summary id="upcoming-summary"></summary>
+      <ol id="upcoming-list"></ol>
+    </details>
+  </section>
+  <div class="toolbar">
+    <div id="filters" class="filters" role="group" aria-label="Filter downloads">
+      <button class="filter" type="button" data-filter="all"></button>
+      <button class="filter" type="button" data-filter="active"></button>
+      <button class="filter" type="button" data-filter="done"></button>
+      <button class="filter" type="button" data-filter="failed"></button>
+    </div>
+    <button id="clear" class="link" type="button" title="Remove finished and failed downloads from this list">Clear finished</button>
+  </div>
+  <ul id="list" class="list"></ul>
+  <div id="empty" class="empty muted" hidden></div>
+  <template id="item">
+    <li class="job">
+      <div class="row">
+        <a class="title grow job-title" href="#"></a>
+        <button class="button job-folder" type="button" hidden>Show in folder</button>
+        <button class="button job-retry" type="button" hidden>Retry</button>
+        <button class="link job-remove" type="button" title="Remove from this list" hidden>Remove</button>
+      </div>
+      <div class="bar"><div class="fill"></div></div>
+      <div class="status job-status"></div>
+    </li>
+  </template>
+  <script type="module" src="manager.js"></script>
+</body>
+</html>

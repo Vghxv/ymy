@@ -139,7 +139,7 @@ function renderPlaylist() {
   playlistEl.dataset.state = playlist ? playlist.state : "idle";
   playlistTitleEl.textContent = title;
   playlistTitleEl.title = title;
-  playlistStatusEl.textContent = playlist ? playlistText(playlist) : "50–70 s between tracks";
+  playlistStatusEl.textContent = playlist ? playlistText(playlist) : "";
   playlistDismissEl.hidden = !playlist || isRunning(playlist);
   const label = offer ? "Download all" : isRunning(playlist) ? "Stop" : playlist.state === "stopped" ? "Resume" : "";
   playlistActionEl.hidden = !label;
@@ -257,6 +257,9 @@ async function loadPlaylistTitle(id) {
 
 async function main() {
   openEl.addEventListener("click", () => openFolder());
+  document.getElementById("manager").addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("manager/manager.html") });
+  });
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const id = tab && trackId(tab.url);
   if (id) tabTrack = { id, url: tab.url, title: cleanTabTitle(tab.title) };

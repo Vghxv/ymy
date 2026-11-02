@@ -5,7 +5,7 @@ import { activeSummary, interruptedJob, isActive, newJob, reduce } from "./src/j
 import { isRunning, listed, newPlaylist, randomWaitMs, restored, resumed, startNext, stopped, subfolder, trackFinished } from "./src/playlist.js";
 import { RELEASES_API, availableUpdate, isNewer, reduceUpdate } from "./src/update.js";
 
-const MAX_STORED_JOBS = 20;
+const MAX_STORED_JOBS = 200;
 const DONE_BADGE_MS = 4000;
 const UPDATE_ALARM = "update-check";
 const UPDATE_CHECK_MINUTES = 24 * 60;
@@ -449,6 +449,12 @@ async function handlePopupCommand(port, msg) {
       else startDownload(id, msg.title || existing?.title || "", existing?.subfolder);
       return;
     }
+    case "remove":
+      if (!jobs.has(msg.id) || isActive(jobs.get(msg.id))) return;
+      jobs.delete(msg.id);
+      persistJobs();
+      broadcast();
+      return;
     case "clear":
       for (const [id, job] of jobs) {
         if (!isActive(job)) jobs.delete(id);
