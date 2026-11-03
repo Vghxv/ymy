@@ -1,35 +1,26 @@
 import os
 import tempfile
 import unittest
-from types import SimpleNamespace
 
 from ytm_host.playlist import MAX_TRACKS_BYTES, PLAYLIST_URL_RE, fit_message, run_playlist, tracks_from
 
 from .test_library import comment, id3
 
 GOOD_URL = "https://music.youtube.com/playlist?list=PL123_abc-XYZ"
-A = "dQw4w9WgXcQ"
+A = "testVideo01"
 B = "AAAAAAAAAAA"
 
 
-def fake_yt_dlp(result):
-    class FakeYoutubeDL:
-        def __init__(self, options):
-            self.options = options
+def fake_read(result):
+    """A stand-in for ytmusic.read_playlist: returns the result, or raises it."""
 
-        def __enter__(self):
-            return self
+    def read(playlist_id):
+        assert playlist_id == "PL123_abc-XYZ"
+        if isinstance(result, Exception):
+            raise result
+        return result
 
-        def __exit__(self, *exc):
-            return False
-
-        def extract_info(self, url, download=True):
-            assert download is False
-            if isinstance(result, Exception):
-                raise result
-            return result
-
-    return SimpleNamespace(YoutubeDL=FakeYoutubeDL)
+    return read
 
 
 class RunPlaylistTests(unittest.TestCase):
@@ -43,15 +34,15 @@ class RunPlaylistTests(unittest.TestCase):
 
     def run_playlist(self, result, url=GOOD_URL, output_dir="ignored", subfolder=""):
         events = []
-        loads = []
+        reads = []
 
-        def load():
-            loads.append(True)
-            return fake_yt_dlp(result)
+        def read(playlist_id):
+            reads.append(playlist_id)
+            return fake_read(result)(playlist_id)
 
-        run_playlist(url, events.append, output_dir=output_dir, load=load, subfolder=subfolder)
+        run_playlist(url, events.append, output_dir=output_dir, read=read, subfolder=subfolder)
         self.assertEqual(len(events), 1)
-        self.loads = loads
+        self.reads = reads
         return events[0]
 
     def test_lists_title_and_tracks(self):
@@ -69,6 +60,16 @@ class RunPlaylistTests(unittest.TestCase):
         self.assertEqual(reply["tracks"], [{"id": B, "title": "Two"}])
         self.assertEqual(reply["skipped"], 1)
 
+    def test_the_video_youtube_music_plays_is_the_one_downloaded(self):
+        reply = self.run_playlist({"title": "Mix", "entries": [{"id": B, "added": A, "title": "Two"}]})
+        self.assertEqual(reply["tracks"], [{"id": B, "title": "Two"}])
+
+    def test_a_track_saved_from_the_video_in_the_playlist_is_left_out(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.save_track(root, "Mix", A)
+            reply = self.run_playlist({"title": "Mix", "entries": [{"id": B, "added": A, "title": "Two"}]}, output_dir=root)
+        self.assertEqual((reply["tracks"], reply["skipped"]), ([], 1))
+
     def test_everything_in_the_folder_leaves_no_tracks_without_an_error(self):
         with tempfile.TemporaryDirectory() as root:
             self.save_track(root, "Mix", A)
@@ -84,7 +85,7 @@ class RunPlaylistTests(unittest.TestCase):
     def test_the_default_download_folder_is_used_and_no_folder_is_created(self):
         with tempfile.TemporaryDirectory() as root:
             events = []
-            run_playlist(GOOD_URL, events.append, load=lambda: fake_yt_dlp(self.MIX), resolve_dir=lambda: root)
+            run_playlist(GOOD_URL, events.append, read=fake_read(self.MIX), resolve_dir=lambda: root)
             self.assertEqual(events[0]["skipped"], 0)
             self.assertEqual(os.listdir(root), [])
 
@@ -97,13 +98,13 @@ class RunPlaylistTests(unittest.TestCase):
     def test_only_playlist_links_are_accepted(self):
         reply = self.run_playlist({}, url="https://evil.example/playlist?list=PL1")
         self.assertEqual(reply["code"], "invalid_url")
-        self.assertEqual(self.loads, [])
+        self.assertEqual(self.reads, [])
 
     def test_a_playlist_without_tracks_is_an_error(self):
         self.assertEqual(self.run_playlist({"title": "Mix", "entries": []})["code"], "playlist_empty")
 
     def test_private_playlists_get_a_clear_message(self):
-        reply = self.run_playlist(Exception("ERROR: [youtube:tab] LM: YouTube said: The playlist does not exist."))
+        reply = self.run_playlist(None)
         self.assertEqual(reply["code"], "playlist_not_found")
         self.assertIn("sign-in", reply["message"])
 
@@ -124,6 +125,10 @@ class TracksTests(unittest.TestCase):
             ]
         }
         self.assertEqual(tracks_from(info), [{"id": A, "title": "One"}])
+
+    def test_the_added_video_is_kept_only_when_another_one_plays(self):
+        info = {"entries": [{"id": A, "added": A, "title": "One"}, {"id": B, "added": "CCCCCCCCCCC", "title": "Two"}]}
+        self.assertEqual(tracks_from(info), [{"id": A, "title": "One"}, {"id": B, "title": "Two", "added": "CCCCCCCCCCC"}])
 
     def test_no_result_means_no_tracks(self):
         self.assertEqual(tracks_from(None), [])

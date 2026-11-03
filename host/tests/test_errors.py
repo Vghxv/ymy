@@ -32,7 +32,7 @@ class ClassifyTests(unittest.TestCase):
 
 class CleanMessageTests(unittest.TestCase):
     def test_strips_ansi_prefix_and_extra_lines(self):
-        text = "\x1b[0;31mERROR:\x1b[0m [youtube] dQw4w9WgXcQ: Boom\nsecond line"
+        text = "\x1b[0;31mERROR:\x1b[0m [youtube] testVideo01: Boom\nsecond line"
         self.assertEqual(clean_message(text), "Boom")
 
     def test_truncates_long_messages(self):
