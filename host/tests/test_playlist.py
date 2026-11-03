@@ -8,7 +8,7 @@ from ytm_host.playlist import MAX_TRACKS_BYTES, PLAYLIST_URL_RE, fit_message, ru
 from .test_library import comment, id3
 
 GOOD_URL = "https://music.youtube.com/playlist?list=PL123_abc-XYZ"
-A = "dQw4w9WgXcQ"
+A = "testVideo01"
 B = "AAAAAAAAAAA"
 
 

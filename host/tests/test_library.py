@@ -5,7 +5,7 @@ import unittest
 
 from ytm_host.library import find_track, run_check, tag_mentions, video_id, video_ids_in
 
-VID = "dQw4w9WgXcQ"
+VID = "testVideo01"
 URL = "https://music.youtube.com/watch?v=" + VID
 
 

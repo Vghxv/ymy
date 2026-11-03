@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from ytm_host.downloader import URL_RE, build_options, run_job
 
-GOOD_URL = "https://music.youtube.com/watch?v=dQw4w9WgXcQ"
+GOOD_URL = "https://music.youtube.com/watch?v=testVideo01"
 
 
 def make_fake_yt_dlp(behaviours):
@@ -174,7 +174,7 @@ class RunJobTests(unittest.TestCase):
         self.assertEqual(self.last()["type"], "done")
 
     def test_invalid_url_is_rejected_before_any_work(self):
-        self.run_job([], url="https://evil.example/watch?v=dQw4w9WgXcQ")
+        self.run_job([], url="https://evil.example/watch?v=testVideo01")
         self.assertEqual(self.last()["code"], "invalid_url")
         self.assertEqual(self.loads, [])
 
@@ -188,7 +188,7 @@ class RunJobTests(unittest.TestCase):
         self.assertEqual(self.loads, [])
 
     def test_unavailable_track_reports_a_friendly_error(self):
-        self.run_job([Exception("ERROR: [youtube] dQw4w9WgXcQ: Video unavailable")])
+        self.run_job([Exception("ERROR: [youtube] testVideo01: Video unavailable")])
         self.assertEqual(self.last(), {"type": "error", "code": "unavailable", "message": "This track is unavailable."})
 
     def test_extractor_breakage_is_reported_without_updating_or_retrying(self):
@@ -228,10 +228,10 @@ class UrlTests(unittest.TestCase):
         self.assertTrue(URL_RE.match(GOOD_URL))
         for bad in (
             "https://music.youtube.com/watch?v=short",
-            "https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=x",
-            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "http://music.youtube.com/watch?v=dQw4w9WgXcQ",
-            "https://music.youtube.com/watch?v=dQw4w9WgXcQ\nrm",
+            "https://music.youtube.com/watch?v=testVideo01&list=x",
+            "https://www.youtube.com/watch?v=testVideo01",
+            "http://music.youtube.com/watch?v=testVideo01",
+            "https://music.youtube.com/watch?v=testVideo01\nrm",
         ):
             self.assertFalse(URL_RE.match(bad), bad)
 
